@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CONTRACTOR
+  EMPLOYEE
+}
+
+enum Status {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  REVISION
+}
+
+model User {
+  id                  String          @id @default(uuid())
+  email               String          @unique
+  password            String
+  role                Role            @default(CONTRACTOR)
+  name                String
+  organization        String
+  createdAt           DateTime        @default(now())
+
+  contractorQuestionnaires  Questionnaire[]  @relation("ContractorQuestionnaires")
+  employeeQuestionnaires    Questionnaire[]  @relation("EmployeeQuestionnaires")
+}
+
+model Questionnaire {
+  id                  String          @id @default(uuid())
+  status              Status          @default(DRAFT)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt()
+  comment             String?
+
+  contractorId        String
+  contractor          User            @relation("ContractorQuestionnaires", fields: [contractorId], references: [id], onDelete: Cascade)
+
+  employeeId          String
+  employee            User            @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  answers             Answer[]
+  scoring             ScoringResult?
+}
+
+model Question {
+  id                  String          @id @default(uuid())
+  code                String          @unique
+  section             String
+  text                String
+  type                String
+  order               Int
+
+  answers             Answer[]
+}
+
+model Answer {
+  id                  String          @id @default(uuid())
+  value               String
+  additionalValue     String?
+
+  questionId          String
+  question            Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  questionnaireId     String
+  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  @@unique([questionnaireId, questionId])
+}
+
+model ScoringResult {
+  id                  String          @id @default(uuid())
+  recommended         Boolean         @default(false)
+  
+  auditScore          Int
+  documentScore       Int
+  measuresScore       Int
+  
+  gisScore            Int?
+  pdnScore            Int?
+  remoteAccessScore   Int?
+  devScore            Int?
+  contractorsScore    Int?
+
+  questionnaireId     String          @unique
+  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+}
