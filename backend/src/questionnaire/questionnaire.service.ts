@@ -64,7 +64,11 @@ export class QuestionnaireService {
     return { message: 'Ответы сохранены' };
   }
 
-  async getQuestionnaire(questionnaireId: string, userId: string) {
+  async getQuestionnaire(
+    questionnaireId: string,
+    userId: string,
+    userRole?: string,
+  ) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
       include: {
@@ -73,6 +77,9 @@ export class QuestionnaireService {
             question: true,
           },
         },
+        contractor: {
+          select: { name: true, organization: true, email: true },
+        },
       },
     });
 
@@ -80,7 +87,7 @@ export class QuestionnaireService {
       throw new NotFoundException('Анкета не найдена!');
     }
 
-    if (questionnaire.contractorId !== userId) {
+    if (userRole !== 'EMPLOYEE' && questionnaire.contractorId !== userId) {
       throw new ForbiddenException('Доступ запрещён!');
     }
 
@@ -220,5 +227,27 @@ export class QuestionnaireService {
     });
 
     return { message: 'Вопрос удален!' };
+  }
+
+  async getMyRecommendations(questionnaireId: string, userId: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    if (questionnaire.contractorId !== userId) {
+      throw new ForbiddenException('Доступ запрещен!');
+    }
+
+    if (!['APPROVED', 'REVISION', 'DECLINED'].includes(questionnaire.status)) {
+      throw new ForbiddenException(
+        'Рекомендации недоступны до проверки анкеты!',
+      );
+    }
+
+    return this.scoringService.getRecommendations(questionnaireId);
   }
 }

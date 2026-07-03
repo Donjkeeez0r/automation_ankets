@@ -95,11 +95,12 @@ export class QuestionnaireController {
   @Get(':id')
   getQuestionnaire(
     @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string },
+    @CurrentUser() user: { userId: string; role: string },
   ) {
     return this.questionnaireService.getQuestionnaire(
       questionnaireId,
       user.userId,
+      user.role,
     );
   }
 
@@ -113,6 +114,18 @@ export class QuestionnaireController {
   @Roles(Role.EMPLOYEE)
   getRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getReccomendation(questionnaireId);
+  }
+
+  @Get(':id/my-recommendations')
+  @Roles(Role.CONTRACTOR)
+  getMyRecommendations(
+    @Param('id') questionnaireId: string,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnaireService.getMyRecommendations(
+      questionnaireId,
+      user.userId,
+    );
   }
 
   @Patch(':id/status')
