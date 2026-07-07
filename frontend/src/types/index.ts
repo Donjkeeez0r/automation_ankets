@@ -8,7 +8,13 @@ export type Status =
   | 'DECLINED'
   | 'REVISION';
 
-export type QuestionType = 'text' | 'yesno' | 'yesno_na' | 'yesno_partial';
+export type QuestionType =
+  | 'text'
+  | 'yesno'
+  | 'yesno_na'
+  | 'yesno_partial'
+  | 'yesno_arch'
+  | 'yesno_nowork';
 
 export interface User {
   userId: string;

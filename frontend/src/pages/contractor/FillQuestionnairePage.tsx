@@ -27,6 +27,10 @@ const APPENDED_TRIGGERS: { code: string; section: string }[] = [
 const YESNO_OPTIONS = ['Да', 'Нет'];
 const YESNO_NA_OPTIONS = ['Да', 'Нет', 'Не предполагается'];
 const YESNO_PARTIAL_OPTIONS = ['Реализовано в полной мере', 'Реализовано частично', 'Не реализовано'];
+const YESNO_ARCH_OPTIONS = ['Да', 'Нет', 'Не требуется по архитектуре Организации'];
+const YESNO_NOWORK_OPTIONS = ['Да', 'Нет', 'Не предполагается данный вид работ/услуг'];
+
+const SOC_TYPE_OPTIONS = ['Внутренний (собственный)', 'Договор с внешним'];
 
 const ADDITIONAL_VALUE_PLACEHOLDERS: Record<string, string> = {
   '1.1.5': 'Укажите наименование и реквизиты документа',
@@ -69,6 +73,9 @@ function triggersAdditionalValue(question: Question, value: string): boolean {
   if (question.type === 'yesno_partial') {
     return value === 'Реализовано в полной мере' || value === 'Реализовано частично';
   }
+  if (question.type === 'yesno_nowork') {
+    return false;
+  }
   return value === 'Да';
 }
 
@@ -92,6 +99,10 @@ function AnswerInput({
       ? YESNO_NA_OPTIONS
       : question.type === 'yesno_partial'
       ? YESNO_PARTIAL_OPTIONS
+      : question.type === 'yesno_arch'
+      ? YESNO_ARCH_OPTIONS
+      : question.type === 'yesno_nowork'
+      ? YESNO_NOWORK_OPTIONS
       : null;
 
   if (question.type === 'text') {
@@ -109,6 +120,8 @@ function AnswerInput({
   if (options) {
     const additionalPlaceholder =
       ADDITIONAL_VALUE_PLACEHOLDERS[question.code] ?? ADDITIONAL_VALUE_SECTIONS[question.section];
+    const showAdditional = triggersAdditionalValue(question, value);
+    const isSocType = question.code === '1.2.6' && value === 'Да';
     return (
       <div>
         <div className="flex flex-wrap gap-2">
@@ -127,14 +140,34 @@ function AnswerInput({
             </button>
           ))}
         </div>
-        {additionalPlaceholder && value === 'Да' && (
-          <textarea
-            value={additionalValue}
-            onChange={(e) => onAdditionalChange(e.target.value)}
-            rows={2}
-            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder={additionalPlaceholder}
-          />
+        {isSocType ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SOC_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => onAdditionalChange(opt)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  additionalValue === opt
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        ) : (
+          additionalPlaceholder &&
+          showAdditional && (
+            <textarea
+              value={additionalValue}
+              onChange={(e) => onAdditionalChange(e.target.value)}
+              rows={2}
+              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder={additionalPlaceholder}
+            />
+          )
         )}
       </div>
     );

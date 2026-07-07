@@ -14,7 +14,7 @@ async function main() {
   for (const question of questions) {
     await prisma.question.upsert({
       where: { code: question.code },
-      update: {},
+      update: question,
       create: question,
     });
   }
