@@ -20,11 +20,59 @@ const TILES: ScoreTile[] = [
   { key: 'contractorsScore',  label: 'Подрядчики',         affectsVerdict: false },
 ];
 
-function ScoreTileCard({ label, value, affectsVerdict }: { label: string; value: number | null | boolean; affectsVerdict: boolean }) {
+interface Hint {
+  text: string;
+  className: string;
+}
+
+function getHint(tileKey: keyof ScoringResult, numVal: number | null): Hint | null {
+  switch (tileKey) {
+    case 'auditScore':
+      if (numVal === 0) return { text: 'Подрядчик не реализует обязательный внешний аудит!', className: 'text-red-600' };
+      if (numVal === 1) return { text: 'Подрядчиком реализован обязательный внешний аудит', className: 'text-green-600' };
+      return null;
+    case 'documentScore':
+      if (numVal === 0) return { text: 'Подрядчик не разработал обязательные документы по ИБ!', className: 'text-red-600' };
+      if (numVal === 1) return { text: 'Подрядчиком выполнены требования в части документации', className: 'text-green-600' };
+      return null;
+    case 'measuresScore':
+      if (numVal === 0) return { text: 'Подрядчик не внедрил обязательные меры ИБ!', className: 'text-red-600' };
+      if (numVal === 1) return { text: 'Подрядчиком внедрены обязательные меры ИБ', className: 'text-green-600' };
+      return null;
+    case 'gisScore':
+      if (numVal === 0) return { text: 'Подрядчик не соответствует требованиям при работе с ГИС!', className: 'text-red-600' };
+      if (numVal === null) return { text: 'Участие подрядчика в работах с ГИС не предполагается', className: 'text-gray-500' };
+      if (numVal === 1) return { text: 'Подрядчик соответствует требованиям при работе с ГИС', className: 'text-green-600' };
+      return null;
+    case 'pdnScore':
+      if (numVal === 0) return { text: 'Подрядчик не соответствует требованиям при работе с ПДн!', className: 'text-red-600' };
+      if (numVal === null) return { text: 'Участие подрядчика в обработке ПДн не предполагается', className: 'text-gray-500' };
+      if (numVal === 1) return { text: 'Подрядчик соответствует требованиям при работе с ПДн', className: 'text-green-600' };
+      return null;
+    case 'remoteAccessScore':
+      if (numVal === 0) return { text: 'Подрядчик не соответствует требованиям для удаленного доступа в инфраструктуру РТК!', className: 'text-red-600' };
+      if (numVal === null) return { text: 'Удаленный доступ подрядчика не предполагается', className: 'text-gray-500' };
+      if (numVal === 1) return { text: 'Подрядчик соответствует требованиям для удаленного доступа в инфраструктуру РТК', className: 'text-green-600' };
+      return null;
+    case 'devScore':
+      if (numVal === 0) return { text: 'Подрядчик не соответствует требованиям по безопасной разработке ПО!', className: 'text-red-600' };
+      if (numVal === null) return { text: 'Разработка ПО подрядчиком не предполагается', className: 'text-gray-500' };
+      if (numVal === 1) return { text: 'Подрядчик соответствует требованиям по безопасной разработке ПО', className: 'text-green-600' };
+      return null;
+    case 'contractorsScore':
+      if (numVal === 0) return { text: 'Необходимо заполнить перечень подрядчиков!', className: 'text-red-600' };
+      if (numVal === 2) return { text: 'Убедитесь что данные подрядчиков заполнены качественно', className: 'text-orange-500' };
+      return null;
+    default:
+      return null;
+  }
+}
+
+function ScoreTileCard({ tileKey, label, value, affectsVerdict }: { tileKey: keyof ScoringResult; label: string; value: number | null | boolean; affectsVerdict: boolean }) {
   const numVal = typeof value === 'boolean' ? null : value;
 
   let bg = 'bg-gray-100 text-gray-500';
-  let display = 'Н/П';
+  let display = '—';
 
   if (numVal === 1) {
     bg = 'bg-green-50 border-green-200 text-green-700';
@@ -37,12 +85,14 @@ function ScoreTileCard({ label, value, affectsVerdict }: { label: string; value:
     display = '2';
   }
 
+  const hint = getHint(tileKey, numVal);
+
   return (
     <div className={`rounded-xl border p-5 flex flex-col items-center gap-2 ${bg}`}>
       <div className="text-3xl font-bold">{display}</div>
       <div className="text-xs font-medium text-center">{label}</div>
-      {!affectsVerdict && numVal !== null && (
-        <div className="text-xs opacity-60">не влияет на итог</div>
+      {hint && (
+        <div className={`text-xs text-center ${hint.className}`}>{hint.text}</div>
       )}
     </div>
   );
@@ -84,6 +134,7 @@ export default function ScoringPage() {
             {TILES.map(({ key, label, affectsVerdict }) => (
               <ScoreTileCard
                 key={key}
+                tileKey={key}
                 label={label}
                 value={scoring[key] as number | null}
                 affectsVerdict={affectsVerdict}
@@ -98,13 +149,8 @@ export default function ScoringPage() {
                 : 'bg-red-50 border-red-200'
             }`}
           >
-            <div className={`text-2xl font-bold mb-1 ${scoring.recommended ? 'text-green-700' : 'text-red-700'}`}>
-              {scoring.recommended ? 'Рекомендовано к допуску' : 'Не рекомендовано к допуску'}
-            </div>
-            <div className="text-sm text-gray-500">
-              {scoring.recommended
-                ? 'Подрядчик соответствует требованиям ИБ'
-                : 'Подрядчик не соответствует одному или нескольким требованиям ИБ'}
+            <div className={`text-2xl font-bold ${scoring.recommended ? 'text-green-700' : 'text-red-700'}`}>
+              {scoring.recommended ? 'Подрядчик рекомендован' : 'Подрядчик не рекомендован'}
             </div>
           </div>
         </>

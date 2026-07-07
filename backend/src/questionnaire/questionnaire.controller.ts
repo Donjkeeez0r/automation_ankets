@@ -140,4 +140,10 @@ export class QuestionnaireController {
       dto.comment,
     );
   }
+
+  @Post(':id/recalculate')
+  @Roles(Role.EMPLOYEE)
+  recalculate(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.recalculate(questionnaireId);
+  }
 }

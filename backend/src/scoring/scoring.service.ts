@@ -8,11 +8,7 @@ export class ScoringService {
   async calculateScore(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
-      include: {
-        answers: {
-          include: { question: true },
-        },
-      },
+      include: { answers: { include: { question: true } } },
     });
 
     if (!questionnaire) {
@@ -24,10 +20,8 @@ export class ScoringService {
       answers[answer.question.code] = answer.value;
     }
 
-    // Блок 1 — Внешний аудит (не влияет на итог, но показывается)
     const auditScore = answers['1.2.1'] === 'Да' ? 1 : 0;
 
-    // Блок 2 — Документы по ИБ
     const documentScore =
       answers['1.2.2'] === 'Да' &&
       answers['1.2.4'] === 'Да' &&
@@ -35,7 +29,6 @@ export class ScoringService {
         ? 1
         : 0;
 
-    // Блок 3 — Меры ИБ
     const measuresScore =
       answers['1.1.5'] === 'Да' &&
       answers['1.2.7'] === 'Да' &&
@@ -44,8 +37,11 @@ export class ScoringService {
         ? 1
         : 0;
 
-    // Блок 4 — ГИС
-    const gisRelevant = answers['1.3.1'] !== 'Нет';
+    // ГИС — Неактуально если Нет или Не предполагается
+    const gisRelevant =
+      answers['1.3.1'] !== 'Нет' &&
+      answers['1.3.1'] !== 'Не предполагается' &&
+      !!answers['1.3.1'];
     const gisScore = !gisRelevant
       ? null
       : answers['1.3.2'] === 'Да' &&
@@ -55,19 +51,23 @@ export class ScoringService {
         ? 1
         : 0;
 
-    // Блок 5 — ПДн
-    const pdnRelevant = answers['1.4.1'] !== 'Нет';
+    // ПДн — Неактуально если Нет или Не предполагается
+    const pdnRelevant =
+      answers['1.4.1'] !== 'Нет' &&
+      answers['1.4.1'] !== 'Не предполагается' &&
+      !!answers['1.4.1'];
     const pdnScore = !pdnRelevant
       ? null
       : answers['1.4.2'] === 'Да' &&
           answers['1.4.3'] === 'Да' &&
           answers['1.4.4'] === 'Да' &&
-          answers['1.4.5'] === 'Да'
+          answers['1.4.5'] === 'Да' &&
+          answers['1.4.1'] === 'Да'
         ? 1
         : 0;
 
-    // Блок 6 — Удалённый доступ
-    const remoteRelevant = answers['1.1.10'] !== 'Нет';
+    // Удалённый доступ
+    const remoteRelevant = answers['1.1.10'] !== 'Нет' && !!answers['1.1.10'];
     const remoteAccessScore = !remoteRelevant
       ? null
       : ['2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7', '2.8', '2.9'].every(
@@ -76,8 +76,8 @@ export class ScoringService {
         ? 1
         : 0;
 
-    // Блок 7 — Разработка ПО
-    const devRelevant = answers['1.1.11'] !== 'Нет';
+    // Разработка ПО
+    const devRelevant = answers['1.1.11'] !== 'Нет' && !!answers['1.1.11'];
     const devScore = !devRelevant
       ? null
       : ['3.1', '3.9', '3.10', '3.14', '3.16', '3.17'].every(
@@ -86,10 +86,14 @@ export class ScoringService {
         ? 1
         : 0;
 
-    // Блок 8 — Подрядчики
-    const contractorsScore = answers['1.1.8'] !== 'Да' ? 1 : 2;
+    // Подрядчики
+    const contractorsScore =
+      answers['1.1.8'] === 'Нет' || !answers['1.1.8']
+        ? 1
+        : answers['4.2']
+          ? 2
+          : 0;
 
-    // Итог — auditScore не влияет на рекомендацию!
     const recommended = ![
       documentScore,
       measuresScore,
@@ -99,7 +103,6 @@ export class ScoringService {
       devScore,
     ].some((s) => s === 0);
 
-    // Сохраняем результат (upsert — если уже есть, обновляем)
     const result = await this.prismaService.scoringResult.upsert({
       where: { questionnaireId },
       update: {

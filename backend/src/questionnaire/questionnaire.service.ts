@@ -250,4 +250,8 @@ export class QuestionnaireService {
 
     return this.scoringService.getRecommendations(questionnaireId);
   }
+
+  async recalculate(questionnaireId: string) {
+    return this.scoringService.calculateScore(questionnaireId);
+  }
 }
