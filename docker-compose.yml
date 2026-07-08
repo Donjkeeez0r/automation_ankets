@@ -20,6 +20,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000
     restart: always
     depends_on:
       db:

@@ -1,4 +1,3 @@
-# ---------- Build stage ----------
 FROM node:20-alpine AS build
 
 WORKDIR /app
@@ -10,9 +9,11 @@ RUN pnpm install
 
 COPY . .
 
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN pnpm run build
 
-# ---------- Production stage ----------
 FROM nginx:alpine AS production
 
 COPY --from=build /app/dist /usr/share/nginx/html
