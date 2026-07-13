@@ -80,7 +80,7 @@ export class ScoringService {
     const devRelevant = answers['1.1.11'] !== 'Нет' && !!answers['1.1.11'];
     const devScore = !devRelevant
       ? null
-      : ['3.1', '3.9', '3.10', '3.14', '3.16', '3.17'].every(
+      : ['3.1', '3.7', '3.8', '3.11', '3.13', '3.14'].every(
             (code) => answers[code] === 'Да',
           )
         ? 1

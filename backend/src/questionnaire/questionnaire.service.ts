@@ -108,7 +108,7 @@ export class QuestionnaireService {
       throw new ForbiddenException('Доступ запрещён!');
     }
 
-    if (questionnaire.status !== 'DRAFT') {
+    if (!['DRAFT', 'REVISION'].includes(questionnaire.status)) {
       throw new BadRequestException('Анкета уже была отправлена!');
     }
 
