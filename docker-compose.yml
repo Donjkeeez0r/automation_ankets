@@ -20,8 +20,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: http://localhost:3000
     restart: always
     depends_on:
       db:
@@ -36,6 +34,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://217.150.196.109/api
     restart: always
     depends_on:
       - backend
