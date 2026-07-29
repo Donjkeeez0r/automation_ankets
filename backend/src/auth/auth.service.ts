@@ -30,7 +30,7 @@ export class AuthService {
       name: dto.name,
       organization: dto.organization,
       password: hashedPassword,
-      role: dto.role ?? Role.CONTRACTOR,
+      role: dto.role ?? Role.EMPLOYEE,
     });
 
     return this.generateToken(user);

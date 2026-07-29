@@ -7,6 +7,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { QuestionnaireModule } from './questionnaire/questionnaire.module';
 import { ScoringModule } from './scoring/scoring.module';
+import { CompaniesModule } from './companies/companies.module';
+import { LinksModule } from './links/links.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { ScoringModule } from './scoring/scoring.module';
     UsersModule,
     QuestionnaireModule,
     ScoringModule,
+    CompaniesModule,
+    LinksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

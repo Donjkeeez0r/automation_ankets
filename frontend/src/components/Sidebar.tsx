@@ -34,7 +34,7 @@ export default function Sidebar() {
     <aside className="w-64 min-h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-200">
         <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
-          ПАО Ростелеком
+          КОМПАНИЯ
         </div>
         <div className="text-sm font-semibold text-gray-800 leading-tight">
           Анкетирование ИБ

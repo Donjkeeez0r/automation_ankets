@@ -48,7 +48,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            ПАО Ростелеком
+            КОМПАНИЯ
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Анкетирование ИБ</h1>
           <p className="mt-1 text-sm text-gray-500">Войдите в систему</p>

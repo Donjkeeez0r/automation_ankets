@@ -9,8 +9,9 @@ datasource db {
 }
 
 enum Role {
-  CONTRACTOR
+  ADMIN
   EMPLOYEE
+  AUDITOR
 }
 
 enum Status {
@@ -26,13 +27,23 @@ model User {
   id                  String          @id @default(uuid())
   email               String          @unique
   password            String
-  role                Role            @default(CONTRACTOR)
+  role                Role            @default(EMPLOYEE)
   name                String
   organization        String
   createdAt           DateTime        @default(now())
 
-  contractorQuestionnaires  Questionnaire[]  @relation("ContractorQuestionnaires")
   employeeQuestionnaires    Questionnaire[]  @relation("EmployeeQuestionnaires")
+}
+
+model Company {
+  id                    String        @id @default(uuid())
+  name                  String
+  inn                   String?
+  contactName           String
+  contactEmail          String
+  createdAt             DateTime      @default(now())
+
+  questionnaires  Questionnaire[]
 }
 
 model Questionnaire {
@@ -42,14 +53,27 @@ model Questionnaire {
   updatedAt           DateTime        @updatedAt()
   comment             String?
 
-  contractorId        String
-  contractor          User            @relation("ContractorQuestionnaires", fields: [contractorId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   employeeId          String
   employee            User            @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
 
   answers             Answer[]
   scoring             ScoringResult?
+
+  links               QuestionnaireLink[]
+}
+
+model QuestionnaireLink {
+  id                  String          @id @default(uuid())
+  token               String          @unique
+  expiresAt           DateTime
+  isActive            Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+
+  questionnaireId     String
+  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }
 
 model Question {

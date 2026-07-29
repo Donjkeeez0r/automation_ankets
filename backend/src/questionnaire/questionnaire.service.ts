@@ -1,6 +1,7 @@
 import {
   BadRequestException,
-  ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -10,12 +11,15 @@ import { AnswerDto } from './dto/answer.dto';
 import { ScoringService } from '../scoring/scoring.service';
 import { Status } from '../generated/prisma';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
+import { LinksService } from '../links/links.service';
 
 @Injectable()
 export class QuestionnaireService {
   constructor(
     private prismaService: PrismaService,
     private scoringService: ScoringService,
+    @Inject(forwardRef(() => LinksService))
+    private linksService: LinksService,
   ) {}
 
   async getAllQuestions() {
@@ -24,12 +28,12 @@ export class QuestionnaireService {
     });
   }
 
-  async createQuestionnaire(employeeId: string, contractorId: string) {
+  async createQuestionnaire(employeeId: string, companyId: string) {
     try {
       const questionnaire = await this.prismaService.questionnaire.create({
         data: {
           employeeId,
-          contractorId,
+          companyId,
         },
       });
       return questionnaire;
@@ -64,11 +68,10 @@ export class QuestionnaireService {
     return { message: 'Ответы сохранены' };
   }
 
-  async getQuestionnaire(
-    questionnaireId: string,
-    userId: string,
-    userRole?: string,
-  ) {
+  // TODO: сейчас доступ открыт всем EMPLOYEE/AUDITOR через JWT.
+  // Когда добавим доступ по токену для подрядчика — здесь появится
+  // отдельная ветка проверки токена вместо userRole/userId.
+  async getQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
       include: {
@@ -77,8 +80,13 @@ export class QuestionnaireService {
             question: true,
           },
         },
-        contractor: {
-          select: { name: true, organization: true, email: true },
+        company: {
+          select: {
+            name: true,
+            inn: true,
+            contactName: true,
+            contactEmail: true,
+          },
         },
       },
     });
@@ -87,14 +95,11 @@ export class QuestionnaireService {
       throw new NotFoundException('Анкета не найдена!');
     }
 
-    if (userRole !== 'EMPLOYEE' && questionnaire.contractorId !== userId) {
-      throw new ForbiddenException('Доступ запрещён!');
-    }
-
     return questionnaire;
   }
 
-  async submitQuestionnaire(questionnaireId: string, userId: string) {
+  // TODO: временно без проверки владения — заменится на проверку токена
+  async submitQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
       include: { answers: { include: { question: true } } },
@@ -102,10 +107,6 @@ export class QuestionnaireService {
 
     if (!questionnaire) {
       throw new NotFoundException('Анкета не найдена!');
-    }
-
-    if (questionnaire.contractorId !== userId) {
-      throw new ForbiddenException('Доступ запрещён!');
     }
 
     if (!['DRAFT', 'REVISION'].includes(questionnaire.status)) {
@@ -125,11 +126,12 @@ export class QuestionnaireService {
   async getAllQuestionnaires() {
     return this.prismaService.questionnaire.findMany({
       include: {
-        contractor: {
+        company: {
           select: {
             name: true,
-            organization: true,
-            email: true,
+            inn: true,
+            contactName: true,
+            contactEmail: true,
           },
         },
       },
@@ -166,21 +168,22 @@ export class QuestionnaireService {
       throw new NotFoundException('Анкета не найдена!');
     }
 
-    return this.prismaService.questionnaire.update({
+    const updated = await this.prismaService.questionnaire.update({
       where: { id: questionnaireId },
-      data: {
-        status,
-        comment,
-      },
+      data: { status, comment },
     });
+
+    if (status === 'REVISION') {
+      await this.linksService.reactivateByQuestionnaireId(questionnaireId);
+    }
+
+    return updated;
   }
 
-  async getMyQuestionnaires(userId: string) {
-    return this.prismaService.questionnaire.findMany({
-      where: { contractorId: userId },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+  // TODO: раньше это был список анкет для залогиненного подрядчика.
+  // Подрядчик больше не логинится — метод понадобится в другом виде
+  // (например getQuestionnairesByCompany(companyId)) либо не понадобится вовсе,
+  // если подрядчику всегда даём прямую ссылку на конкретную анкету.
 
   async createQuestion(dto: CreateQuestionDto) {
     const existing = await this.prismaService.question.findUnique({
@@ -229,27 +232,8 @@ export class QuestionnaireService {
     return { message: 'Вопрос удален!' };
   }
 
-  async getMyRecommendations(questionnaireId: string, userId: string) {
-    const questionnaire = await this.prismaService.questionnaire.findUnique({
-      where: { id: questionnaireId },
-    });
-
-    if (!questionnaire) {
-      throw new NotFoundException('Анкета не найдена!');
-    }
-
-    if (questionnaire.contractorId !== userId) {
-      throw new ForbiddenException('Доступ запрещен!');
-    }
-
-    if (!['APPROVED', 'REVISION', 'DECLINED'].includes(questionnaire.status)) {
-      throw new ForbiddenException(
-        'Рекомендации недоступны до проверки анкеты!',
-      );
-    }
-
-    return this.scoringService.getRecommendations(questionnaireId);
-  }
+  // TODO: раньше рекомендации подрядчику отдавались через его JWT.
+  // Заменится на выдачу по токену.
 
   async recalculate(questionnaireId: string) {
     return this.scoringService.calculateScore(questionnaireId);

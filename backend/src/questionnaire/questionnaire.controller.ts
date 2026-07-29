@@ -32,12 +32,13 @@ export class QuestionnaireController {
   ) {
     return this.questionnaireService.createQuestionnaire(
       user.userId,
-      dto.contractorId,
+      dto.companyId,
     );
   }
 
+  // TODO: этот эндпоинт станет доступен по токену вместо JWT,
+  // когда добавим механизм одноразовой ссылки для подрядчика
   @Post(':id/answers')
-  @Roles(Role.CONTRACTOR)
   saveAnswers(
     @Param('id') questionnaireId: string,
     @Body() dto: SubmitAnswerDto,
@@ -45,16 +46,10 @@ export class QuestionnaireController {
     return this.questionnaireService.saveAnswers(questionnaireId, dto.answers);
   }
 
+  // TODO: то же самое — станет доступен по токену
   @Post(':id/submit')
-  @Roles(Role.CONTRACTOR)
-  submitQuestionnaire(
-    @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string },
-  ) {
-    return this.questionnaireService.submitQuestionnaire(
-      questionnaireId,
-      user.userId,
-    );
+  submitQuestionnaire(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.submitQuestionnaire(questionnaireId);
   }
 
   @Get()
@@ -86,22 +81,13 @@ export class QuestionnaireController {
     return this.questionnaireService.getAllQuestions();
   }
 
-  @Get('my')
-  @Roles(Role.CONTRACTOR)
-  getMyQuestionnaires(@CurrentUser() user: { userId: string }) {
-    return this.questionnaireService.getMyQuestionnaires(user.userId);
-  }
+  // TODO: раньше был "мои анкеты" для залогиненного подрядчика — убран,
+  // подрядчик больше не логинится. Вернётся в другом виде, если понадобится.
 
+  // TODO: без проверки владения — станет доступен по токену
   @Get(':id')
-  getQuestionnaire(
-    @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string; role: string },
-  ) {
-    return this.questionnaireService.getQuestionnaire(
-      questionnaireId,
-      user.userId,
-      user.role,
-    );
+  getQuestionnaire(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.getQuestionnaire(questionnaireId);
   }
 
   @Get(':id/scoring')
@@ -116,20 +102,11 @@ export class QuestionnaireController {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }
 
-  @Get(':id/my-recommendations')
-  @Roles(Role.CONTRACTOR)
-  getMyRecommendations(
-    @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string },
-  ) {
-    return this.questionnaireService.getMyRecommendations(
-      questionnaireId,
-      user.userId,
-    );
-  }
+  // TODO: "мои рекомендации" для подрядчика — убран вместе с getMyRecommendations
+  // в сервисе, вернётся через токен
 
   @Patch(':id/status')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.AUDITOR)
   updateStatus(
     @Param('id') questionnaireId: string,
     @Body() dto: UpdateStatusDto,
