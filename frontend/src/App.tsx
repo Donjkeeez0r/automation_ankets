@@ -1,26 +1,22 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
+import { landingPath } from './lib/roles';
 
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-
 import ProfilePage from './pages/ProfilePage';
 
-import MyQuestionnairesPage from './pages/contractor/MyQuestionnairesPage';
-import FillQuestionnairePage from './pages/contractor/FillQuestionnairePage';
-import ViewAnswersPage from './pages/contractor/ViewAnswersPage';
-
-import AllQuestionnairesPage from './pages/employee/AllQuestionnairesPage';
-import CreateQuestionnairePage from './pages/employee/CreateQuestionnairePage';
-import QuestionnaireDetailPage from './pages/employee/QuestionnaireDetailPage';
-import ScoringPage from './pages/employee/ScoringPage';
-import RecommendationsPage from './pages/employee/RecommendationsPage';
+import UsersPage from './pages/admin/UsersPage';
+import CompaniesPage from './pages/employee/CompaniesPage';
+import QuestionnairesListPage from './pages/auditor/QuestionnairesListPage';
+import QuestionnaireReviewPage from './pages/auditor/QuestionnaireReviewPage';
+import FillPage from './pages/fill/FillPage';
 
 function RootRedirect() {
   const { user, isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={user?.role === 'CONTRACTOR' ? '/my-questionnaires' : '/questionnaires'} replace />;
+  return <Navigate to={landingPath(user?.role)} replace />;
 }
 
 export default function App() {
@@ -31,25 +27,28 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Shared routes */}
+          {/* Подрядчик — без авторизации, по одноразовой ссылке */}
+          <Route path="/fill/:token" element={<FillPage />} />
+
+          {/* Общие маршруты */}
           <Route element={<Layout />}>
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
-          {/* Contractor routes */}
-          <Route element={<Layout requiredRole="CONTRACTOR" />}>
-            <Route path="/my-questionnaires" element={<MyQuestionnairesPage />} />
-            <Route path="/questionnaires/:id/fill" element={<FillQuestionnairePage />} />
-            <Route path="/questionnaires/:id/view" element={<ViewAnswersPage />} />
+          {/* ADMIN — управление пользователями */}
+          <Route element={<Layout requiredRole="ADMIN" />}>
+            <Route path="/users" element={<UsersPage />} />
           </Route>
 
-          {/* Employee routes */}
+          {/* EMPLOYEE — компании и анкеты */}
           <Route element={<Layout requiredRole="EMPLOYEE" />}>
-            <Route path="/questionnaires" element={<AllQuestionnairesPage />} />
-            <Route path="/questionnaires/new" element={<CreateQuestionnairePage />} />
-            <Route path="/questionnaires/:id" element={<QuestionnaireDetailPage />} />
-            <Route path="/questionnaires/:id/scoring" element={<ScoringPage />} />
-            <Route path="/questionnaires/:id/recommendations" element={<RecommendationsPage />} />
+            <Route path="/companies" element={<CompaniesPage />} />
+          </Route>
+
+          {/* AUDITOR — проверка анкет */}
+          <Route element={<Layout requiredRole="AUDITOR" />}>
+            <Route path="/questionnaires" element={<QuestionnairesListPage />} />
+            <Route path="/questionnaires/:id" element={<QuestionnaireReviewPage />} />
           </Route>
 
           <Route path="/" element={<RootRedirect />} />

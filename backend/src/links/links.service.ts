@@ -27,7 +27,21 @@ export class LinksService {
   async findByToken(token: string) {
     const link = await this.prismaService.questionnaireLink.findUnique({
       where: { token },
-      include: { questionnaire: true },
+      include: {
+        questionnaire: {
+          include: {
+            company: {
+              select: {
+                name: true,
+                inn: true,
+                contactName: true,
+                contactEmail: true,
+              },
+            },
+            answers: true,
+          },
+        },
+      },
     });
 
     if (!link) {

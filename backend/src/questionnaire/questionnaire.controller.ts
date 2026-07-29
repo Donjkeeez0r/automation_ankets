@@ -18,6 +18,7 @@ import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('questionnaire')
@@ -53,7 +54,7 @@ export class QuestionnaireController {
   }
 
   @Get()
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
   getAllQuestionnaires() {
     return this.questionnaireService.getAllQuestionnaires();
   }
@@ -76,7 +77,9 @@ export class QuestionnaireController {
     return this.questionnaireService.deleteQuestion(id);
   }
 
+  // Публичный — нужен подрядчику на /fill/:token (без авторизации)
   @Get('questions')
+  @Public()
   getAllQuestions() {
     return this.questionnaireService.getAllQuestions();
   }
@@ -91,13 +94,13 @@ export class QuestionnaireController {
   }
 
   @Get(':id/scoring')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
   getScoring(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getScoring(questionnaireId);
   }
 
   @Get(':id/recommendations')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
   getRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }

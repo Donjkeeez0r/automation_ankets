@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as apiRegister } from '../../api/auth';
+import type { Role } from '../../types';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -8,7 +9,7 @@ export default function RegisterPage() {
     password: '',
     name: '',
     organization: '',
-    role: 'CONTRACTOR' as 'CONTRACTOR' | 'EMPLOYEE',
+    role: 'EMPLOYEE' as Role,
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,8 +105,9 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                <option value="CONTRACTOR">Подрядчик</option>
-                <option value="EMPLOYEE">Работник ПАО</option>
+                <option value="EMPLOYEE">Сотрудник ПАО</option>
+                <option value="AUDITOR">Аудитор</option>
+                <option value="ADMIN">Администратор</option>
               </select>
             </div>
 

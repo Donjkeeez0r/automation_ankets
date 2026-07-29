@@ -3,8 +3,9 @@ import { getMe } from '../api/users';
 import type { Me } from '../types';
 
 const ROLE_LABELS: Record<Me['role'], string> = {
-  CONTRACTOR: 'Подрядчик',
-  EMPLOYEE: 'Работник ПАО',
+  ADMIN: 'Администратор',
+  EMPLOYEE: 'Сотрудник ПАО',
+  AUDITOR: 'Аудитор',
 };
 
 export default function ProfilePage() {

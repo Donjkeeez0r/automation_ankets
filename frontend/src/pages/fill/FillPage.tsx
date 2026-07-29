@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { getAllQuestions, getQuestionnaire, saveAnswers, submitQuestionnaire } from '../../api/questionnaire';
-import type { Question, Answer, Questionnaire } from '../../types';
+import { useParams } from 'react-router-dom';
+import { getAllQuestions } from '../../api/questionnaire';
+import { getLinkByToken, saveAnswersByToken, submitByToken } from '../../api/links';
+import type { Question, Answer, LinkByToken } from '../../types';
 
 const SECTION_LABELS: Record<string, string> = {
   general_info:  '1.1 Общие сведения',
@@ -176,38 +177,40 @@ function AnswerInput({
   return null;
 }
 
-export default function FillQuestionnairePage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+export default function FillPage() {
+  const { token } = useParams<{ token: string }>();
 
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
+  const [link, setLink] = useState<LinkByToken | null>(null);
+  // ключ — questionId
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [additionalValues, setAdditionalValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
-    Promise.all([getAllQuestions(), getQuestionnaire(id)])
-      .then(([qRes, anketaRes]) => {
+    if (!token) return;
+    Promise.all([getAllQuestions(), getLinkByToken(token)])
+      .then(([qRes, linkRes]) => {
         setQuestions(qRes.data);
-        setQuestionnaire(anketaRes.data);
+        setLink(linkRes.data);
         const existing: Record<string, string> = {};
         const existingAdditional: Record<string, string> = {};
-        for (const a of anketaRes.data.answers ?? []) {
+        for (const a of linkRes.data.questionnaire.answers ?? []) {
           existing[a.questionId] = a.value;
           if (a.additionalValue) existingAdditional[a.questionId] = a.additionalValue;
         }
         setAnswers(existing);
         setAdditionalValues(existingAdditional);
       })
-      .catch(() => setError('Не удалось загрузить данные'))
+      .catch(() => setInvalid(true))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [token]);
 
   const getVisibleSections = useCallback(() => {
     const visible = new Set(['general_info', 'ib_measures']);
@@ -231,17 +234,18 @@ export default function FillQuestionnairePage() {
   };
 
   const doSave = async () => {
-    if (!id) return;
+    if (!token) return;
     const payload: Answer[] = Object.entries(answers).map(([questionId, value]) => ({
       questionId,
       value,
       additionalValue: additionalValues[questionId] || undefined,
     }));
-    await saveAnswers(id, payload);
+    await saveAnswersByToken(token, payload);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setError('');
     try {
       await doSave();
       setSaved(true);
@@ -253,12 +257,13 @@ export default function FillQuestionnairePage() {
   };
 
   const handleSubmit = async () => {
-    if (!id) return;
+    if (!token) return;
     setSubmitting(true);
+    setError('');
     try {
       await doSave();
-      await submitQuestionnaire(id);
-      navigate('/my-questionnaires');
+      await submitByToken(token);
+      setSubmitted(true);
     } catch {
       setError('Не удалось отправить анкету');
     } finally {
@@ -266,24 +271,142 @@ export default function FillQuestionnairePage() {
     }
   };
 
-  if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
-  if (error) return <div className="text-sm text-red-600">{error}</div>;
-  if (!questionnaire) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">
+        Загрузка...
+      </div>
+    );
+  }
+
+  if (invalid) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
+          <div className="text-3xl mb-3">🔒</div>
+          <h1 className="text-lg font-bold text-gray-900 mb-2">Ссылка недоступна</h1>
+          <p className="text-sm text-gray-500">
+            Ссылка недействительна или срок её действия истёк. Обратитесь к сотруднику,
+            который её предоставил.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
+          <div className="text-3xl mb-3">✅</div>
+          <h1 className="text-lg font-bold text-gray-900 mb-2">Анкета отправлена</h1>
+          <p className="text-sm text-gray-500">
+            Спасибо! Ваши ответы переданы на проверку. Эту вкладку можно закрыть.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!link) return null;
 
   const visibleSections = getVisibleSections();
   const sectionKeys = Object.keys(SECTION_LABELS).filter((s) => visibleSections.has(s));
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Заполнение анкеты</h1>
-        <div className="flex gap-3">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-6">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+            Анкетирование ИБ
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Заполнение анкеты</h1>
+          {link.questionnaire.company?.name && (
+            <p className="text-sm text-gray-500 mt-0.5">
+              Компания: {link.questionnaire.company.name}
+            </p>
+          )}
+        </div>
+
+        {link.questionnaire.comment && (
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+            <span className="font-medium">Комментарий проверяющего:</span>{' '}
+            {link.questionnaire.comment}
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {sectionKeys.map((sectionKey) => {
+            let sectionQuestions = questions
+              .filter((q) => q.section === sectionKey)
+              .sort((a, b) => a.order - b.order);
+
+            if (sectionKey === 'ib_measures') {
+              for (const { code, section } of APPENDED_TRIGGERS) {
+                const triggerQ = questions.find((q) => q.code === code);
+                if (!triggerQ) continue;
+                sectionQuestions = [...sectionQuestions, triggerQ];
+                if (answers[triggerQ.id] === 'Да') {
+                  const childQuestions = questions
+                    .filter((q) => q.section === section && q.code !== code)
+                    .sort((a, b) => a.order - b.order);
+                  sectionQuestions = [...sectionQuestions, ...childQuestions];
+                }
+              }
+            }
+
+            if (sectionQuestions.length === 0) return null;
+
+            return (
+              <div
+                key={sectionKey}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+              >
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                  <h2 className="text-sm font-semibold text-gray-800">
+                    {SECTION_LABELS[sectionKey]}
+                  </h2>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {sectionQuestions.map((q) => (
+                    <div
+                      key={q.id}
+                      className={`px-6 py-4 ${
+                        (q.section === 'gis' || q.section === 'pdn') && q.order > 1
+                          ? 'pl-10 bg-gray-50/50'
+                          : ''
+                      }`}
+                    >
+                      <p className="text-sm text-gray-800 mb-3">
+                        <span className="font-medium text-gray-400 mr-2">{q.code}</span>
+                        {q.text}
+                      </p>
+                      <AnswerInput
+                        question={q}
+                        value={answers[q.id] ?? ''}
+                        additionalValue={additionalValues[q.id] ?? ''}
+                        onChange={(v) => handleAnswer(q.id, v)}
+                        onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {error && (
+          <div className="mt-6 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Сохранение...' : saved ? 'Сохранено ✓' : 'Сохранить'}
+            {saving ? 'Сохранение...' : saved ? 'Сохранено ✓' : 'Сохранить черновик'}
           </button>
           <button
             onClick={handleSubmit}
@@ -293,84 +416,6 @@ export default function FillQuestionnairePage() {
             {submitting ? 'Отправка...' : 'Отправить анкету'}
           </button>
         </div>
-      </div>
-
-      <div className="space-y-6">
-        {sectionKeys.map((sectionKey) => {
-          let sectionQuestions = questions
-            .filter((q) => q.section === sectionKey)
-            .sort((a, b) => a.order - b.order);
-
-          if (sectionKey === 'ib_measures') {
-            for (const { code, section } of APPENDED_TRIGGERS) {
-              const triggerQ = questions.find((q) => q.code === code);
-              if (!triggerQ) continue;
-              sectionQuestions = [...sectionQuestions, triggerQ];
-              if (answers[triggerQ.id] === 'Да') {
-                const childQuestions = questions
-                  .filter((q) => q.section === section && q.code !== code)
-                  .sort((a, b) => a.order - b.order);
-                sectionQuestions = [...sectionQuestions, ...childQuestions];
-              }
-            }
-          }
-
-          if (sectionQuestions.length === 0) return null;
-
-          return (
-            <div
-              key={sectionKey}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-            >
-              <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                <h2 className="text-sm font-semibold text-gray-800">
-                  {SECTION_LABELS[sectionKey]}
-                </h2>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {sectionQuestions.map((q) => (
-                  <div
-                    key={q.id}
-                    className={`px-6 py-4 ${
-                      (q.section === 'gis' || q.section === 'pdn') && q.order > 1
-                        ? 'pl-10 bg-gray-50/50'
-                        : ''
-                    }`}
-                  >
-                    <p className="text-sm text-gray-800 mb-3">
-                      <span className="font-medium text-gray-400 mr-2">{q.code}</span>
-                      {q.text}
-                    </p>
-                    <AnswerInput
-                      question={q}
-                      value={answers[q.id] ?? ''}
-                      additionalValue={additionalValues[q.id] ?? ''}
-                      onChange={(v) => handleAnswer(q.id, v)}
-                      onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 flex justify-end gap-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Сохранение...' : 'Сохранить черновик'}
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {submitting ? 'Отправка...' : 'Отправить анкету'}
-        </button>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as apiLogin } from '../../api/auth';
 import { useAuth } from '../../context/AuthContext';
+import { landingPath } from '../../lib/roles';
 import type { User } from '../../types';
 
 export default function LoginPage() {
@@ -35,7 +36,7 @@ export default function LoginPage() {
       };
 
       login(token, user);
-      navigate(user.role === 'CONTRACTOR' ? '/my-questionnaires' : '/questionnaires');
+      navigate(landingPath(user.role));
     } catch {
       setError('Неверный email или пароль');
     } finally {

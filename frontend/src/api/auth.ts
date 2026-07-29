@@ -1,5 +1,5 @@
 import api from './client';
-import type { User } from '../types';
+import type { Role } from '../types';
 
 export interface LoginResponse {
   access_token: string;
@@ -13,5 +13,5 @@ export const register = (data: {
   password: string;
   name: string;
   organization: string;
-  role: 'CONTRACTOR' | 'EMPLOYEE';
-}) => api.post<User>('/auth/register', data);
+  role: Role;
+}) => api.post<LoginResponse>('/auth/register', data);

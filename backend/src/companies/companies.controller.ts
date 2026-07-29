@@ -29,4 +29,10 @@ export class CompaniesController {
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
   }
+
+  @Get(':id/questionnaires')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  findQuestionnaires(@Param('id') id: string) {
+    return this.companiesService.findQuestionnaires(id);
+  }
 }

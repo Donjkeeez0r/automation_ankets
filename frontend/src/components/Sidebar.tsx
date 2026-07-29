@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import type { Role } from '../types';
 
 interface NavItem {
   to: string;
@@ -8,22 +9,26 @@ interface NavItem {
 
 const PROFILE_NAV: NavItem = { to: '/profile', label: 'Личный кабинет' };
 
-const CONTRACTOR_NAV: NavItem[] = [
-  { to: '/my-questionnaires', label: 'Мои анкеты' },
-  PROFILE_NAV,
-];
-
-const EMPLOYEE_NAV: NavItem[] = [
-  { to: '/questionnaires', label: 'Все анкеты' },
-  { to: '/questionnaires/new', label: 'Создать анкету' },
-  PROFILE_NAV,
-];
+const NAV_BY_ROLE: Record<Role, NavItem[]> = {
+  ADMIN: [
+    { to: '/users', label: 'Пользователи' },
+    PROFILE_NAV,
+  ],
+  EMPLOYEE: [
+    { to: '/companies', label: 'Компании' },
+    PROFILE_NAV,
+  ],
+  AUDITOR: [
+    { to: '/questionnaires', label: 'Анкеты' },
+    PROFILE_NAV,
+  ],
+};
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const navItems = user?.role === 'CONTRACTOR' ? CONTRACTOR_NAV : EMPLOYEE_NAV;
+  const navItems = (user && NAV_BY_ROLE[user.role]) ?? [PROFILE_NAV];
 
   const handleLogout = () => {
     logout();
