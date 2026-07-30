@@ -63,7 +63,17 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    return this.prismaService.user.delete({ where: { id } });
+    return this.prismaService.user.delete({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        organization: true,
+        role: true,
+        createdAt: true,
+      },
+    });
   }
 
   async resetPassword(id: string) {
@@ -116,6 +126,14 @@ export class UsersService {
   }) {
     return this.prismaService.user.create({
       data,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        organization: true,
+        role: true,
+        createdAt: true,
+      },
     });
   }
 

@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getMe } from '../api/users';
+import { ROLE_LABELS } from '../lib/roles';
 import type { Me } from '../types';
-
-const ROLE_LABELS: Record<Me['role'], string> = {
-  ADMIN: 'Администратор',
-  EMPLOYEE: 'Сотрудник ПАО',
-  AUDITOR: 'Аудитор',
-};
 
 export default function ProfilePage() {
   const [me, setMe] = useState<Me | null>(null);

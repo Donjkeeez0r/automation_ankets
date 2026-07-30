@@ -68,9 +68,6 @@ export class QuestionnaireService {
     return { message: 'Ответы сохранены' };
   }
 
-  // TODO: сейчас доступ открыт всем EMPLOYEE/AUDITOR через JWT.
-  // Когда добавим доступ по токену для подрядчика — здесь появится
-  // отдельная ветка проверки токена вместо userRole/userId.
   async getQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -98,7 +95,6 @@ export class QuestionnaireService {
     return questionnaire;
   }
 
-  // TODO: временно без проверки владения — заменится на проверку токена
   async submitQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -180,11 +176,6 @@ export class QuestionnaireService {
     return updated;
   }
 
-  // TODO: раньше это был список анкет для залогиненного подрядчика.
-  // Подрядчик больше не логинится — метод понадобится в другом виде
-  // (например getQuestionnairesByCompany(companyId)) либо не понадобится вовсе,
-  // если подрядчику всегда даём прямую ссылку на конкретную анкету.
-
   async createQuestion(dto: CreateQuestionDto) {
     const existing = await this.prismaService.question.findUnique({
       where: { code: dto.code },
@@ -231,9 +222,6 @@ export class QuestionnaireService {
 
     return { message: 'Вопрос удален!' };
   }
-
-  // TODO: раньше рекомендации подрядчику отдавались через его JWT.
-  // Заменится на выдачу по токену.
 
   async recalculate(questionnaireId: string) {
     return this.scoringService.calculateScore(questionnaireId);

@@ -14,7 +14,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Role } from '../generated/prisma';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
@@ -35,22 +34,6 @@ export class QuestionnaireController {
       user.userId,
       dto.companyId,
     );
-  }
-
-  // TODO: этот эндпоинт станет доступен по токену вместо JWT,
-  // когда добавим механизм одноразовой ссылки для подрядчика
-  @Post(':id/answers')
-  saveAnswers(
-    @Param('id') questionnaireId: string,
-    @Body() dto: SubmitAnswerDto,
-  ) {
-    return this.questionnaireService.saveAnswers(questionnaireId, dto.answers);
-  }
-
-  // TODO: то же самое — станет доступен по токену
-  @Post(':id/submit')
-  submitQuestionnaire(@Param('id') questionnaireId: string) {
-    return this.questionnaireService.submitQuestionnaire(questionnaireId);
   }
 
   @Get()
@@ -84,11 +67,8 @@ export class QuestionnaireController {
     return this.questionnaireService.getAllQuestions();
   }
 
-  // TODO: раньше был "мои анкеты" для залогиненного подрядчика — убран,
-  // подрядчик больше не логинится. Вернётся в другом виде, если понадобится.
-
-  // TODO: без проверки владения — станет доступен по токену
   @Get(':id')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
   getQuestionnaire(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getQuestionnaire(questionnaireId);
   }
@@ -104,9 +84,6 @@ export class QuestionnaireController {
   getRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }
-
-  // TODO: "мои рекомендации" для подрядчика — убран вместе с getMyRecommendations
-  // в сервисе, вернётся через токен
 
   @Patch(':id/status')
   @Roles(Role.AUDITOR)
