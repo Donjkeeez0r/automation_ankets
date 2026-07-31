@@ -20,6 +20,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   AUDITOR: [
     { to: '/questionnaires', label: 'Анкеты' },
+    { to: '/companies', label: 'Компании' },
     PROFILE_NAV,
   ],
 };

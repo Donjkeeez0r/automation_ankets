@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllQuestionnaires } from '../../api/questionnaire';
+import { getAllQuestionnaires, deleteQuestionnaire } from '../../api/questionnaire';
 import StatusBadge from '../../components/StatusBadge';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import type { Questionnaire } from '../../types';
 
 export default function QuestionnairesListPage() {
@@ -9,12 +10,36 @@ export default function QuestionnairesListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [toDelete, setToDelete] = useState<Questionnaire | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   useEffect(() => {
     getAllQuestionnaires()
       .then((r) => setQuestionnaires(r.data))
       .catch(() => setError('Не удалось загрузить анкеты'))
       .finally(() => setLoading(false));
   }, []);
+
+  const closeDialog = () => {
+    setToDelete(null);
+    setDeleteError('');
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteQuestionnaire(toDelete.id);
+      setQuestionnaires((prev) => prev.filter((q) => q.id !== toDelete.id));
+      closeDialog();
+    } catch {
+      setDeleteError('Не удалось удалить анкету');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
@@ -54,13 +79,19 @@ export default function QuestionnairesListPage() {
                   <td className="px-6 py-4">
                     <StatusBadge status={q.status} />
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
                     <Link
                       to={`/questionnaires/${q.id}`}
                       className="text-blue-600 hover:underline font-medium"
                     >
                       Открыть
                     </Link>
+                    <button
+                      onClick={() => setToDelete(q)}
+                      className="ml-4 text-red-600 hover:underline font-medium"
+                    >
+                      Удалить
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -68,6 +99,24 @@ export default function QuestionnairesListPage() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Удалить анкету?"
+        description={
+          <>
+            <p>
+              Анкета компании «{toDelete?.company?.name ?? '—'}» будет удалена
+              вместе со всеми ответами, скорингом и ссылками.
+            </p>
+            <p className="font-medium text-red-600">Действие необратимо.</p>
+          </>
+        }
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={closeDialog}
+      />
     </div>
   );
 }

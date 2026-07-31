@@ -3,10 +3,13 @@ import {
   getCompanies,
   createCompany,
   getCompanyQuestionnaires,
+  deleteCompany,
 } from '../../api/companies';
 import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 import type { Company, CompanyQuestionnaire, CompanyLink } from '../../types';
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -56,7 +59,13 @@ function LinkRow({ link }: { link: CompanyLink }) {
   );
 }
 
-function CompanyCard({ company }: { company: Company }) {
+interface CompanyCardProps {
+  company: Company;
+  isAuditor: boolean;
+  onRequestDelete: (company: Company) => void;
+}
+
+function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -127,13 +136,24 @@ function CompanyCard({ company }: { company: Company }) {
             {company.inn ? ` · ИНН ${company.inn}` : ''}
           </div>
         </button>
-        <button
-          onClick={handleCreateQuestionnaire}
-          disabled={busy}
-          className="shrink-0 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {busy ? '...' : 'Создать анкету'}
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          {isAuditor ? (
+            <button
+              onClick={() => onRequestDelete(company)}
+              className="px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+            >
+              Удалить
+            </button>
+          ) : (
+            <button
+              onClick={handleCreateQuestionnaire}
+              disabled={busy}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {busy ? '...' : 'Создать анкету'}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <div className="mt-3 text-xs text-red-600">{error}</div>}
@@ -144,7 +164,9 @@ function CompanyCard({ company }: { company: Company }) {
             <div className="text-xs text-gray-500">Загрузка анкет...</div>
           ) : questionnaires.length === 0 ? (
             <div className="text-xs text-gray-500">
-              У компании пока нет анкет. Нажмите «Создать анкету».
+              {isAuditor
+                ? 'У компании пока нет анкет.'
+                : 'У компании пока нет анкет. Нажмите «Создать анкету».'}
             </div>
           ) : (
             <div className="space-y-3">
@@ -157,13 +179,15 @@ function CompanyCard({ company }: { company: Company }) {
                         от {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                       </span>
                     </div>
-                    <button
-                      onClick={() => handleCreateLink(q.id)}
-                      disabled={busy}
-                      className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                    >
-                      Отправить ОЛ
-                    </button>
+                    {!isAuditor && (
+                      <button
+                        onClick={() => handleCreateLink(q.id)}
+                        disabled={busy}
+                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                      >
+                        Отправить ОЛ
+                      </button>
+                    )}
                   </div>
 
                   {q.links.length === 0 ? (
@@ -188,6 +212,9 @@ function CompanyCard({ company }: { company: Company }) {
 }
 
 export default function CompaniesPage() {
+  const { user } = useAuth();
+  const isAuditor = user?.role === 'AUDITOR';
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -195,6 +222,10 @@ export default function CompaniesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+
+  const [toDelete, setToDelete] = useState<Company | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     getCompanies()
@@ -223,6 +254,26 @@ export default function CompaniesPage() {
     }
   };
 
+  const closeDeleteDialog = () => {
+    setToDelete(null);
+    setDeleteError('');
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteCompany(toDelete.id);
+      setCompanies((prev) => prev.filter((c) => c.id !== toDelete.id));
+      closeDeleteDialog();
+    } catch (err) {
+      setDeleteError(errorMessage(err, 'Не удалось удалить компанию'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
 
@@ -230,6 +281,7 @@ export default function CompaniesPage() {
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold text-gray-900 mb-6">Компании-подрядчики</h1>
 
+      {!isAuditor && (
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-800 mb-3">Добавить компанию</h2>
         <form onSubmit={handleCreate} className="space-y-3">
@@ -278,6 +330,7 @@ export default function CompaniesPage() {
           </div>
         </form>
       </div>
+      )}
 
       {companies.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
@@ -286,10 +339,37 @@ export default function CompaniesPage() {
       ) : (
         <div className="space-y-3">
           {companies.map((c) => (
-            <CompanyCard key={c.id} company={c} />
+            <CompanyCard
+              key={c.id}
+              company={c}
+              isAuditor={isAuditor}
+              onRequestDelete={setToDelete}
+            />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Удалить компанию?"
+        description={
+          <>
+            <p>
+              Компания «{toDelete?.name ?? ''}» будет удалена безвозвратно.
+            </p>
+            <p className="font-medium text-red-600">
+              Вместе с ней каскадно удалятся все её анкеты и вся история: ответы,
+              результаты скоринга и выданные одноразовые ссылки. Восстановить
+              данные будет невозможно.
+            </p>
+          </>
+        }
+        confirmLabel="Удалить компанию"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={closeDeleteDialog}
+      />
     </div>
   );
 }

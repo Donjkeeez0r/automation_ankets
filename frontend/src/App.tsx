@@ -40,8 +40,8 @@ export default function App() {
             <Route path="/users" element={<UsersPage />} />
           </Route>
 
-          {/* EMPLOYEE — компании и анкеты */}
-          <Route element={<Layout requiredRole="EMPLOYEE" />}>
+          {/* Компании: EMPLOYEE — ведение, AUDITOR — просмотр и удаление */}
+          <Route element={<Layout requiredRole={['EMPLOYEE', 'AUDITOR']} />}>
             <Route path="/companies" element={<CompaniesPage />} />
           </Route>
 

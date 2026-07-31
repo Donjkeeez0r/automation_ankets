@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
@@ -34,5 +42,11 @@ export class CompaniesController {
   @Roles(Role.EMPLOYEE, Role.AUDITOR)
   findQuestionnaires(@Param('id') id: string) {
     return this.companiesService.findQuestionnaires(id);
+  }
+
+  @Delete(':id')
+  @Roles(Role.AUDITOR)
+  remove(@Param('id') id: string) {
+    return this.companiesService.remove(id);
   }
 }

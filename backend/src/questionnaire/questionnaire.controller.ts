@@ -103,4 +103,10 @@ export class QuestionnaireController {
   recalculate(@Param('id') questionnaireId: string) {
     return this.questionnaireService.recalculate(questionnaireId);
   }
+
+  @Delete(':id')
+  @Roles(Role.AUDITOR)
+  remove(@Param('id') id: string) {
+    return this.questionnaireService.remove(id);
+  }
 }

@@ -226,4 +226,18 @@ export class QuestionnaireService {
   async recalculate(questionnaireId: string) {
     return this.scoringService.calculateScore(questionnaireId);
   }
+
+  async remove(id: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    await this.prismaService.questionnaire.delete({ where: { id } });
+
+    return { message: 'Анкета удалена!' };
+  }
 }

@@ -51,4 +51,18 @@ export class CompaniesService {
       },
     });
   }
+
+  async remove(id: string) {
+    const company = await this.prismaService.company.findUnique({
+      where: { id },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Компания не найдена!');
+    }
+
+    await this.prismaService.company.delete({ where: { id } });
+
+    return { message: 'Компания удалена!' };
+  }
 }

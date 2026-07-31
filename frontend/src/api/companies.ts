@@ -12,3 +12,6 @@ export const createCompany = (data: {
   contactName: string;
   contactEmail: string;
 }) => api.post<Company>('/companies', data);
+
+// AUDITOR: удалить компанию вместе со всеми её анкетами (каскад)
+export const deleteCompany = (id: string) => api.delete(`/companies/${id}`);

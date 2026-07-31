@@ -5,8 +5,10 @@ import {
   getScoring,
   getRecommendations,
   updateStatus,
+  deleteQuestionnaire,
 } from '../../api/questionnaire';
 import StatusBadge from '../../components/StatusBadge';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import AnswersView from '../../components/AnswersView';
 import ScoringTiles from '../../components/ScoringTiles';
 import RecommendationsList from '../../components/RecommendationsList';
@@ -42,6 +44,10 @@ export default function QuestionnaireReviewPage() {
   const [comment, setComment] = useState('');
   const [updating, setUpdating] = useState(false);
   const [actionError, setActionError] = useState('');
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadQuestionnaire = () => {
     if (!id) return;
@@ -82,6 +88,19 @@ export default function QuestionnaireReviewPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteQuestionnaire(id);
+      navigate('/questionnaires', { replace: true });
+    } catch {
+      setDeleteError('Не удалось удалить анкету');
+      setDeleting(false);
+    }
+  };
+
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
   if (!questionnaire) return null;
@@ -108,6 +127,12 @@ export default function QuestionnaireReviewPage() {
           )}
         </div>
         <StatusBadge status={questionnaire.status} />
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="shrink-0 px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+        >
+          Удалить
+        </button>
       </div>
 
       {questionnaire.comment && (
@@ -186,6 +211,27 @@ export default function QuestionnaireReviewPage() {
         ) : (
           <RecommendationsList recommendations={recommendations} />
         ))}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Удалить анкету?"
+        description={
+          <>
+            <p>
+              Анкета компании «{questionnaire.company?.name ?? '—'}» будет удалена
+              вместе со всеми ответами, скорингом и ссылками.
+            </p>
+            <p className="font-medium text-red-600">Действие необратимо.</p>
+          </>
+        }
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setConfirmDelete(false);
+          setDeleteError('');
+        }}
+      />
     </div>
   );
 }

@@ -30,3 +30,7 @@ export const getRecommendations = (id: string) =>
 // AUDITOR: сменить статус анкеты
 export const updateStatus = (id: string, status: Status, comment?: string) =>
   api.patch<Questionnaire>(`/questionnaire/${id}/status`, { status, comment });
+
+// AUDITOR: удалить анкету со всей историей
+export const deleteQuestionnaire = (id: string) =>
+  api.delete(`/questionnaire/${id}`);
