@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -55,5 +56,13 @@ export class UsersController {
   @Roles(Role.ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
+  }
+
+  @Patch('me/password')
+  changePassword(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.usersService.changePassword(user.userId, dto);
   }
 }

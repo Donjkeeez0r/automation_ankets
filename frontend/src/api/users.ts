@@ -3,6 +3,12 @@ import type { CreatedUser, ManagedUser, Me, Role } from '../types';
 
 export const getMe = () => api.get<Me>('/users/me');
 
+// Смена собственного пароля — доступна любой роли
+export const changeMyPassword = (data: {
+  currentPassword: string;
+  newPassword: string;
+}) => api.patch<{ message: string }>('/users/me/password', data);
+
 // --- Управление пользователями (ADMIN) ---
 
 export const getUsers = () => api.get<ManagedUser[]>('/users');

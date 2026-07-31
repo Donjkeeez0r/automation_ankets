@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { CreateUserDto } from './dto/create-user.dto';
 import bcrypt from 'bcrypt';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class UsersService {
@@ -149,5 +150,30 @@ export class UsersService {
         createdAt: true,
       },
     });
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prismaService.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден!');
+    }
+
+    const isValid = await bcrypt.compare(dto.currentPassword, user.password);
+
+    if (!isValid) {
+      throw new BadRequestException('Неверный текущий пароль!');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.prismaService.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Пароль изменен!' };
   }
 }
