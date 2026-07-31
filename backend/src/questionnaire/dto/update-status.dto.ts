@@ -1,5 +1,5 @@
 import { Status } from '../../generated/prisma';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class UpdateStatusDto {
   @IsEnum(Status)
@@ -8,4 +8,8 @@ export class UpdateStatusDto {
   @IsString()
   @IsOptional()
   comment?: string;
+
+  @IsDateString()
+  @IsOptional()
+  deadlineAt?: string;
 }

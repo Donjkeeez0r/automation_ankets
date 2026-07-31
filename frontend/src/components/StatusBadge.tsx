@@ -7,6 +7,7 @@ const STATUS_CONFIG: Record<Status, { label: string; icon: string; classes: stri
   APPROVED:   { label: 'Прошёл',       icon: '✓', classes: 'bg-green-100 text-green-700' },
   DECLINED:   { label: 'Не прошёл',    icon: '✗', classes: 'bg-red-100 text-red-700' },
   REVISION:   { label: 'На доработке', icon: '↩', classes: 'bg-orange-100 text-orange-700' },
+  FAILED:     { label: 'Провален',     icon: '⛔', classes: 'bg-gray-800 text-white' },
 };
 
 export default function StatusBadge({ status }: { status: Status }) {

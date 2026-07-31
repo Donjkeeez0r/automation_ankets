@@ -155,6 +155,7 @@ export class QuestionnaireService {
     questionnaireId: string,
     status: Status,
     comment?: string,
+    deadlineAt?: string,
   ) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
@@ -166,7 +167,11 @@ export class QuestionnaireService {
 
     const updated = await this.prismaService.questionnaire.update({
       where: { id: questionnaireId },
-      data: { status, comment },
+      data: {
+        status,
+        comment,
+        deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
+      },
     });
 
     if (status === 'REVISION') {

@@ -42,6 +42,7 @@ export default function QuestionnaireReviewPage() {
   const [error, setError] = useState('');
 
   const [comment, setComment] = useState('');
+  const [deadline, setDeadline] = useState('');
   const [updating, setUpdating] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -78,9 +79,23 @@ export default function QuestionnaireReviewPage() {
     setUpdating(true);
     setActionError('');
     try {
-      const { data } = await updateStatus(id, status, comment.trim() || undefined);
+      // Дедлайн имеет смысл только при отправке на дозаполнение.
+      // input[type=date] уже даёт «2026-08-15» — конкатенируем время напрямую,
+      // чтобы не прогонять через new Date() (трактует строку как локальное время
+      // и сдвигает календарный день в часовых поясах со смещением).
+      const deadlineAt =
+        status === 'REVISION' && deadline
+          ? `${deadline}T00:00:00.000Z`
+          : undefined;
+      const { data } = await updateStatus(
+        id,
+        status,
+        comment.trim() || undefined,
+        deadlineAt,
+      );
       setQuestionnaire(data);
       setComment('');
+      setDeadline('');
     } catch {
       setActionError('Не удалось изменить статус');
     } finally {
@@ -126,7 +141,17 @@ export default function QuestionnaireReviewPage() {
             </p>
           )}
         </div>
-        <StatusBadge status={questionnaire.status} />
+        <div className="shrink-0 text-right">
+          <StatusBadge status={questionnaire.status} />
+          {questionnaire.deadlineAt && (
+            <div className="mt-1 text-xs text-gray-500">
+              Дедлайн:{' '}
+              {new Date(questionnaire.deadlineAt).toLocaleDateString('ru-RU', {
+                timeZone: 'UTC',
+              })}
+            </div>
+          )}
+        </div>
         <button
           onClick={() => setConfirmDelete(true)}
           className="shrink-0 px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
@@ -151,6 +176,15 @@ export default function QuestionnaireReviewPage() {
             placeholder="Комментарий (обязателен для «На дозаполнение»)..."
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mb-3"
           />
+          <label className="flex flex-wrap items-center gap-2 mb-3 text-sm text-gray-600">
+            Дедлайн дозаполнения (необязательно):
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => handleStatusChange('APPROVED')}
@@ -172,6 +206,13 @@ export default function QuestionnaireReviewPage() {
               className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
             >
               На дозаполнение
+            </button>
+            <button
+              onClick={() => handleStatusChange('FAILED')}
+              disabled={updating}
+              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
+            >
+              Провален
             </button>
           </div>
           {actionError && <div className="mt-3 text-sm text-red-600">{actionError}</div>}

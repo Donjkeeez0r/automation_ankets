@@ -95,6 +95,7 @@ export class QuestionnaireController {
       questionnaireId,
       dto.status,
       dto.comment,
+      dto.deadlineAt,
     );
   }
 

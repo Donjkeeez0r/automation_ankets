@@ -78,6 +78,14 @@ export default function QuestionnairesListPage() {
                   </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={q.status} />
+                    {q.deadlineAt && (
+                      <div className="mt-1 text-xs text-gray-500 whitespace-nowrap">
+                        Дедлайн:{' '}
+                        {new Date(q.deadlineAt).toLocaleDateString('ru-RU', {
+                          timeZone: 'UTC',
+                        })}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
                     <Link

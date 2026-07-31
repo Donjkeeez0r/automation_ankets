@@ -27,9 +27,18 @@ export const getScoring = (id: string) =>
 export const getRecommendations = (id: string) =>
   api.get<Recommendation[]>(`/questionnaire/${id}/recommendations`);
 
-// AUDITOR: сменить статус анкеты
-export const updateStatus = (id: string, status: Status, comment?: string) =>
-  api.patch<Questionnaire>(`/questionnaire/${id}/status`, { status, comment });
+// AUDITOR: сменить статус анкеты (deadlineAt — ISO-строка, только для REVISION)
+export const updateStatus = (
+  id: string,
+  status: Status,
+  comment?: string,
+  deadlineAt?: string,
+) =>
+  api.patch<Questionnaire>(`/questionnaire/${id}/status`, {
+    status,
+    comment,
+    deadlineAt,
+  });
 
 // AUDITOR: удалить анкету со всей историей
 export const deleteQuestionnaire = (id: string) =>

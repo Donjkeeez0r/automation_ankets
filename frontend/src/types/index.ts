@@ -6,7 +6,8 @@ export type Status =
   | 'IN_REVIEW'
   | 'APPROVED'
   | 'DECLINED'
-  | 'REVISION';
+  | 'REVISION'
+  | 'FAILED';
 
 export type QuestionType =
   | 'text'
@@ -95,6 +96,7 @@ export interface Questionnaire {
   companyId: string;
   employeeId: string;
   comment?: string | null;
+  deadlineAt?: string | null;
   company?: CompanyRef;
   answers?: AnswerWithQuestion[];
 }
@@ -124,6 +126,7 @@ export interface CompanyQuestionnaire {
   createdAt: string;
   updatedAt: string;
   comment?: string | null;
+  deadlineAt?: string | null;
   links: CompanyLink[];
 }
 

@@ -21,6 +21,7 @@ enum Status {
   APPROVED
   DECLINED
   REVISION
+  FAILED
 }
 
 model User {
@@ -52,6 +53,7 @@ model Questionnaire {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt()
   comment             String?
+  deadlineAt          DateTime?
 
   companyId           String
   company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
