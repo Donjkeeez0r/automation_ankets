@@ -176,4 +176,12 @@ export class UsersService {
 
     return { message: 'Пароль изменен!' };
   }
+
+  async getAuditorEmails() {
+    const auditors = await this.prismaService.user.findMany({
+      where: { role: 'AUDITOR' },
+      select: { email: true },
+    });
+    return auditors.map((a) => a.email);
+  }
 }

@@ -5,23 +5,43 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class LinksService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async createLink(questionnaireId: string) {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    return this.prismaService.questionnaireLink.create({
-      data: {
-        token,
-        expiresAt,
-        questionnaireId,
+    const link = await this.prismaService.questionnaireLink.create({
+      data: { token, expiresAt, questionnaireId },
+      include: {
+        questionnaire: {
+          include: { company: true },
+        },
       },
     });
+
+    const fillUrl = `${process.env.FRONTEND_URL}/fill/${token}`;
+
+    await this.notificationsService.sendMail(
+      link.questionnaire.company.contactEmail,
+      'Анкета информационной безопасности — ПАО «Ростелеком»',
+      `
+        <p>Здравствуйте, ${link.questionnaire.company.contactName}!</p>
+        <p>Для продолжения сотрудничества просим заполнить анкету информационной безопасности по ссылке ниже.</p>
+        <p><a href="${fillUrl}">${fillUrl}</a></p>
+        <p>Ссылка действительна 30 дней.</p>
+      `,
+    );
+
+    return link;
   }
 
   async findByToken(token: string) {

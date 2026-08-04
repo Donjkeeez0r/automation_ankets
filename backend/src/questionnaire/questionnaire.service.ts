@@ -12,6 +12,8 @@ import { ScoringService } from '../scoring/scoring.service';
 import { Status } from '../generated/prisma';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { LinksService } from '../links/links.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class QuestionnaireService {
@@ -20,6 +22,8 @@ export class QuestionnaireService {
     private scoringService: ScoringService,
     @Inject(forwardRef(() => LinksService))
     private linksService: LinksService,
+    private notificationsService: NotificationsService,
+    private usersService: UsersService,
   ) {}
 
   async getAllQuestions() {
@@ -98,7 +102,7 @@ export class QuestionnaireService {
   async submitQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
-      include: { answers: { include: { question: true } } },
+      include: { answers: { include: { question: true } }, company: true },
     });
 
     if (!questionnaire) {
@@ -115,6 +119,18 @@ export class QuestionnaireService {
     });
 
     await this.scoringService.calculateScore(questionnaireId);
+
+    const auditorEmails = await this.usersService.getAuditorEmails();
+    for (const email of auditorEmails) {
+      await this.notificationsService.sendMail(
+        email,
+        'Новая анкета на проверку',
+        `
+          <p>Поступила новая анкета от компании «${questionnaire.company.name}» для проверки.</p>
+          <p>Проверьте её в системе анкетирования.</p>
+        `,
+      );
+    }
 
     return updated;
   }

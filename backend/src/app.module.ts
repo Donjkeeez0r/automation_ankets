@@ -9,6 +9,7 @@ import { QuestionnaireModule } from './questionnaire/questionnaire.module';
 import { ScoringModule } from './scoring/scoring.module';
 import { CompaniesModule } from './companies/companies.module';
 import { LinksModule } from './links/links.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { LinksModule } from './links/links.module';
     ScoringModule,
     CompaniesModule,
     LinksModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
