@@ -14,6 +14,7 @@ import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { LinksService } from '../links/links.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class QuestionnaireService {
@@ -187,6 +188,7 @@ export class QuestionnaireService {
         status,
         comment,
         deadlineAt: deadlineAt ? new Date(deadlineAt) : undefined,
+        deadlineNotifiedAt: status === 'REVISION' ? null : undefined,
       },
     });
 
@@ -260,5 +262,44 @@ export class QuestionnaireService {
     await this.prismaService.questionnaire.delete({ where: { id } });
 
     return { message: 'Анкета удалена!' };
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkDeadlines() {
+    const now = new Date();
+
+    const overdueQuestionnaires =
+      await this.prismaService.questionnaire.findMany({
+        where: {
+          status: 'REVISION',
+          deadlineAt: { lte: now },
+          deadlineNotifiedAt: null,
+        },
+        include: { company: true },
+      });
+
+    if (overdueQuestionnaires.length === 0) {
+      return;
+    }
+
+    const auditorEmails = await this.usersService.getAuditorEmails();
+
+    for (const questionnaire of overdueQuestionnaires) {
+      for (const email of auditorEmails) {
+        await this.notificationsService.sendMail(
+          email,
+          'Просрочен дедлайн дозаполнения анкеты',
+          `
+          <p>У компании «${questionnaire.company.name}» истёк срок дозаполнения анкеты (дедлайн: ${questionnaire.deadlineAt?.toLocaleDateString('ru-RU')}).</p>
+          <p>Требуется проверка в системе анкетирования.</p>
+          `,
+        );
+      }
+
+      await this.prismaService.questionnaire.update({
+        where: { id: questionnaire.id },
+        data: { deadlineNotifiedAt: now },
+      });
+    }
   }
 }

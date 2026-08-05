@@ -54,6 +54,7 @@ model Questionnaire {
   updatedAt           DateTime        @updatedAt()
   comment             String?
   deadlineAt          DateTime?
+  deadlineNotifiedAt  DateTime?
 
   companyId           String
   company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)

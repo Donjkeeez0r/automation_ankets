@@ -10,11 +10,13 @@ import { ScoringModule } from './scoring/scoring.module';
 import { CompaniesModule } from './companies/companies.module';
 import { LinksModule } from './links/links.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     PrismaModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     AuthModule,
     UsersModule,
     QuestionnaireModule,
