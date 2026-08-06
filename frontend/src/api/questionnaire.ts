@@ -17,6 +17,10 @@ export const getQuestionnaire = (id: string) =>
 export const getAllQuestions = () =>
   api.get<Question[]>('/questionnaire/questions');
 
+// EMPLOYEE: изменить признак обязательности вопроса
+export const updateQuestionRequired = (id: string, required: boolean) =>
+  api.patch<Question>(`/questionnaire/questions/${id}`, { required });
+
 // EMPLOYEE: создать анкету для компании
 export const createQuestionnaire = (companyId: string) =>
   api.post<Questionnaire>('/questionnaire', { companyId });

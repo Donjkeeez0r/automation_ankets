@@ -70,6 +70,15 @@ const ADDITIONAL_VALUE_SECTIONS: Record<string, string> = {
   software_dev: 'Опишите реализованную меру...',
 };
 
+// Бэкенд отвечает 400 с { message, missingCodes: ['1.2.1', ...] }, если
+// не заполнены обязательные вопросы.
+function missingCodesFromError(err: unknown): string[] | null {
+  const codes = (err as { response?: { data?: { missingCodes?: unknown } } })?.response?.data
+    ?.missingCodes;
+  if (!Array.isArray(codes) || codes.length === 0) return null;
+  return codes.filter((c): c is string => typeof c === 'string');
+}
+
 function triggersAdditionalValue(question: Question, value: string): boolean {
   if (question.type === 'yesno_partial') {
     return value === 'Реализовано в полной мере' || value === 'Реализовано частично';
@@ -264,8 +273,13 @@ export default function FillPage() {
       await doSave();
       await submitByToken(token);
       setSubmitted(true);
-    } catch {
-      setError('Не удалось отправить анкету');
+    } catch (err) {
+      const missing = missingCodesFromError(err);
+      setError(
+        missing
+          ? `Заполните обязательные вопросы: ${missing.join(', ')}`
+          : 'Не удалось отправить анкету',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -380,6 +394,11 @@ export default function FillPage() {
                       <p className="text-sm text-gray-800 mb-3">
                         <span className="font-medium text-gray-400 mr-2">{q.code}</span>
                         {q.text}
+                        {q.required && (
+                          <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
+                            *
+                          </span>
+                        )}
                       </p>
                       <AnswerInput
                         question={q}

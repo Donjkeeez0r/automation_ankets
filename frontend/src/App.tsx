@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage';
 
 import UsersPage from './pages/admin/UsersPage';
 import CompaniesPage from './pages/employee/CompaniesPage';
+import QuestionsPage from './pages/employee/QuestionsPage';
 import QuestionnairesListPage from './pages/auditor/QuestionnairesListPage';
 import QuestionnaireReviewPage from './pages/auditor/QuestionnaireReviewPage';
 import FillPage from './pages/fill/FillPage';
@@ -43,6 +44,11 @@ export default function App() {
           {/* Компании: EMPLOYEE — ведение, AUDITOR — просмотр и удаление */}
           <Route element={<Layout requiredRole={['EMPLOYEE', 'AUDITOR']} />}>
             <Route path="/companies" element={<CompaniesPage />} />
+          </Route>
+
+          {/* EMPLOYEE — настройка вопросов анкеты */}
+          <Route element={<Layout requiredRole="EMPLOYEE" />}>
+            <Route path="/questions" element={<QuestionsPage />} />
           </Route>
 
           {/* AUDITOR — проверка анкет */}

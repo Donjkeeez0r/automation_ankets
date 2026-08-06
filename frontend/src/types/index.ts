@@ -72,6 +72,7 @@ export interface Question {
   section: string;
   type: QuestionType;
   order: number;
+  required: boolean;
 }
 
 export interface Answer {
