@@ -7,7 +7,6 @@ export type Status =
   | 'APPROVED'
   | 'DECLINED'
   | 'REVISION'
-  | 'FAILED';
 
 export type QuestionType =
   | 'text'

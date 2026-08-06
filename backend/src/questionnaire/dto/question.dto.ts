@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateQuestionDto {
   @IsString()
@@ -16,6 +16,10 @@ export class CreateQuestionDto {
   @IsInt()
   @Min(1)
   order!: number;
+
+  @IsBoolean()
+  @IsOptional()
+  required?: boolean;
 }
 
 export class UpdateQuestionDto {
@@ -35,4 +39,8 @@ export class UpdateQuestionDto {
   @IsOptional()
   @Min(1)
   order?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  required?: boolean;
 }

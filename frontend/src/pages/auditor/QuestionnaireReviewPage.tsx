@@ -203,16 +203,9 @@ export default function QuestionnaireReviewPage() {
             <button
               onClick={() => handleStatusChange('REVISION')}
               disabled={updating}
-              className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 transition-colors"
             >
               На дозаполнение
-            </button>
-            <button
-              onClick={() => handleStatusChange('FAILED')}
-              disabled={updating}
-              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
-            >
-              Провален
             </button>
           </div>
           {actionError && <div className="mt-3 text-sm text-red-600">{actionError}</div>}

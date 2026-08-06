@@ -27,6 +27,55 @@ export class QuestionnaireService {
     private usersService: UsersService,
   ) {}
 
+  async validateRequiredAnswers(questionnaireId: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+      include: { answers: { include: { question: true } } },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    const answers: Record<string, string> = {};
+    for (const a of questionnaire.answers) {
+      answers[a.question.code] = a.value;
+    }
+
+    const {
+      gisRelevant,
+      pdnRelevant,
+      remoteRelevant,
+      devRelevant,
+      contractorsRelevant,
+    } = this.scoringService.getSectionRelevance(answers);
+
+    const requiredQuestions = await this.prismaService.question.findMany({
+      where: { required: true },
+    });
+
+    const missing: string[] = [];
+
+    for (const q of requiredQuestions) {
+      if (q.section === 'gis' && !gisRelevant) continue;
+      if (q.section === 'pdn' && !pdnRelevant) continue;
+      if (q.section === 'remote_access' && !remoteRelevant) continue;
+      if (q.section === 'software_dev' && !devRelevant) continue;
+      if (q.section === 'contractors' && !contractorsRelevant) continue;
+
+      if (!answers[q.code]) {
+        missing.push(q.code);
+      }
+    }
+
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        message: 'Не заполнены обязательные вопросы',
+        missingCodes: missing,
+      });
+    }
+  }
+
   async getAllQuestions() {
     return this.prismaService.question.findMany({
       orderBy: [{ section: 'asc' }, { order: 'asc' }],
@@ -113,6 +162,8 @@ export class QuestionnaireService {
     if (!['DRAFT', 'REVISION'].includes(questionnaire.status)) {
       throw new BadRequestException('Анкета уже была отправлена!');
     }
+
+    await this.validateRequiredAnswers(questionnaireId);
 
     const updated = await this.prismaService.questionnaire.update({
       where: { id: questionnaireId },

@@ -86,6 +86,7 @@ model Question {
   text                String
   type                String
   order               Int
+  required            Boolean         @default(true)
 
   answers             Answer[]
 }
