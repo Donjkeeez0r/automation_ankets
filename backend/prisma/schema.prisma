@@ -41,7 +41,7 @@ model Company {
   name                  String
   inn                   String?
   contactName           String
-  contactEmail          String
+  contactEmails         String[]
   createdAt             DateTime      @default(now())
 
   questionnaires  Questionnaire[]

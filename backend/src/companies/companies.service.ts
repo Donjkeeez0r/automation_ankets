@@ -9,7 +9,7 @@ export class CompaniesService {
     name: string;
     inn?: string;
     contactName: string;
-    contactEmail: string;
+    contactEmails: string[];
   }) {
     return this.prismaService.company.create({ data: dto });
   }

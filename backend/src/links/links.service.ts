@@ -30,16 +30,18 @@ export class LinksService {
 
     const fillUrl = `${process.env.FRONTEND_URL}/fill/${token}`;
 
-    await this.notificationsService.sendMail(
-      link.questionnaire.company.contactEmail,
-      'Анкета информационной безопасности — ПАО «Ростелеком»',
-      `
-        <p>Здравствуйте, ${link.questionnaire.company.contactName}!</p>
-        <p>Для продолжения сотрудничества просим заполнить анкету информационной безопасности по ссылке ниже.</p>
-        <p><a href="${fillUrl}">${fillUrl}</a></p>
-        <p>Ссылка действительна 30 дней.</p>
-      `,
-    );
+    for (const email of link.questionnaire.company.contactEmails) {
+      await this.notificationsService.sendMail(
+        email,
+        'Анкета информационной безопасности',
+        `
+          <p>Здравствуйте, ${link.questionnaire.company.contactName}!</p>
+          <p>Для продолжения сотрудничества просим заполнить анкету информационной безопасности по ссылке ниже.</p>
+          <p><a href="${fillUrl}">${fillUrl}</a></p>
+          <p>Ссылка действительна 30 дней.</p>
+        `,
+      );
+    }
 
     return link;
   }
@@ -55,7 +57,7 @@ export class LinksService {
                 name: true,
                 inn: true,
                 contactName: true,
-                contactEmail: true,
+                contactEmails: true,
               },
             },
             answers: true,

@@ -19,7 +19,11 @@ function errorMessage(err: unknown, fallback: string): string {
   return msg ?? fallback;
 }
 
-const EMPTY_FORM = { name: '', inn: '', contactName: '', contactEmail: '' };
+const EMPTY_FORM = { name: '', inn: '', contactName: '', contactEmails: [''] };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const isEmail = (value: string) => EMAIL_RE.test(value.trim());
 
 const fillUrl = (token: string) => `${window.location.origin}/fill/${token}`;
 
@@ -132,7 +136,7 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
             {company.name}
           </div>
           <div className="text-xs text-gray-500 mt-0.5 ml-5">
-            {company.contactName} · {company.contactEmail}
+            {company.contactName} · {company.contactEmails.join(', ')}
             {company.inn ? ` · ИНН ${company.inn}` : ''}
           </div>
         </button>
@@ -234,8 +238,34 @@ export default function CompaniesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const setEmail = (index: number, value: string) =>
+    setForm((p) => ({
+      ...p,
+      contactEmails: p.contactEmails.map((email, i) => (i === index ? value : email)),
+    }));
+
+  const addEmail = () =>
+    setForm((p) => ({ ...p, contactEmails: [...p.contactEmails, ''] }));
+
+  const removeEmail = (index: number) =>
+    setForm((p) => ({
+      ...p,
+      contactEmails: p.contactEmails.filter((_, i) => i !== index),
+    }));
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
+
+    const emails = form.contactEmails.map((email) => email.trim()).filter(Boolean);
+    if (emails.length === 0) {
+      setCreateError('Укажите хотя бы один контактный email');
+      return;
+    }
+    if (!emails.every(isEmail)) {
+      setCreateError('Проверьте формат email — один из адресов заполнен некорректно');
+      return;
+    }
+
     setCreating(true);
     setCreateError('');
     try {
@@ -243,7 +273,7 @@ export default function CompaniesPage() {
         name: form.name,
         inn: form.inn || undefined,
         contactName: form.contactName,
-        contactEmail: form.contactEmail,
+        contactEmails: emails,
       });
       setCompanies((prev) => [...prev, data]);
       setForm(EMPTY_FORM);
@@ -309,15 +339,44 @@ export default function CompaniesPage() {
               placeholder="Контактное лицо"
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <input
-              type="email"
-              required
-              value={form.contactEmail}
-              onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))}
-              placeholder="Контактный email"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
+
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600">
+              Контактные email
+            </label>
+            {form.contactEmails.map((email, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(i, e.target.value)}
+                  placeholder="Контактный email"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {form.contactEmails.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeEmail(i)}
+                    aria-label="Удалить email"
+                    title="Удалить email"
+                    className="shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 border border-gray-200 rounded-lg hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEmail}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              + добавить ещё email
+            </button>
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               type="submit"

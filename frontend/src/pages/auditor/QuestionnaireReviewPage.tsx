@@ -137,7 +137,8 @@ export default function QuestionnaireReviewPage() {
           </h1>
           {questionnaire.company && (
             <p className="text-sm text-gray-500">
-              {questionnaire.company.contactName} · {questionnaire.company.contactEmail}
+              {questionnaire.company.contactName} ·{' '}
+              {questionnaire.company.contactEmails.join(', ')}
             </p>
           )}
         </div>

@@ -1,4 +1,10 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsEmail,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateCompanyDto {
   @IsString()
@@ -11,6 +17,8 @@ export class CreateCompanyDto {
   @IsString()
   contactName!: string;
 
-  @IsEmail()
-  contactEmail!: string;
+  @IsArray()
+  @IsEmail({}, { each: true })
+  @ArrayMinSize(1)
+  contactEmails!: string[];
 }

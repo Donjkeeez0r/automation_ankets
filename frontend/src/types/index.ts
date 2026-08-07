@@ -54,7 +54,7 @@ export interface Company {
   name: string;
   inn?: string | null;
   contactName: string;
-  contactEmail: string;
+  contactEmails: string[];
   createdAt?: string;
 }
 
@@ -62,7 +62,7 @@ export interface CompanyRef {
   name: string;
   inn?: string | null;
   contactName: string;
-  contactEmail: string;
+  contactEmails: string[];
 }
 
 export interface Question {
