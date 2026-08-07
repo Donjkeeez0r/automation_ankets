@@ -13,5 +13,16 @@ export const createCompany = (data: {
   contactEmails: string[];
 }) => api.post<Company>('/companies', data);
 
+// EMPLOYEE: отредактировать компанию (все поля опциональны)
+export const updateCompany = (
+  id: string,
+  data: {
+    name?: string;
+    inn?: string;
+    contactName?: string;
+    contactEmails?: string[];
+  },
+) => api.patch<Company>(`/companies/${id}`, data);
+
 // AUDITOR: удалить компанию вместе со всеми её анкетами (каскад)
 export const deleteCompany = (id: string) => api.delete(`/companies/${id}`);

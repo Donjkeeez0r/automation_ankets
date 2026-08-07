@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
 export class CompaniesService {
@@ -64,5 +65,20 @@ export class CompaniesService {
     await this.prismaService.company.delete({ where: { id } });
 
     return { message: 'Компания удалена!' };
+  }
+
+  async update(id: string, dto: UpdateCompanyDto) {
+    const company = await this.prismaService.company.findUnique({
+      where: { id },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Компания не найдена!');
+    }
+
+    return this.prismaService.company.update({
+      where: { id },
+      data: dto,
+    });
   }
 }

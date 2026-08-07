@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('companies')
@@ -48,5 +50,11 @@ export class CompaniesController {
   @Roles(Role.AUDITOR)
   remove(@Param('id') id: string) {
     return this.companiesService.remove(id);
+  }
+
+  @Patch(':id')
+  @Roles(Role.EMPLOYEE)
+  update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
+    return this.companiesService.update(id, dto);
   }
 }

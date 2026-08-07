@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getCompanies,
   createCompany,
+  updateCompany,
   getCompanyQuestionnaires,
   deleteCompany,
 } from '../../api/companies';
@@ -9,6 +10,7 @@ import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyForm';
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
 import { useAuth } from '../../context/AuthContext';
 import type { Company, CompanyQuestionnaire, CompanyLink } from '../../types';
@@ -19,12 +21,6 @@ function errorMessage(err: unknown, fallback: string): string {
   if (Array.isArray(msg)) return msg.join(', ');
   return msg ?? fallback;
 }
-
-const EMPTY_FORM = { name: '', inn: '', contactName: '', contactEmails: [''] };
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const isEmail = (value: string) => EMAIL_RE.test(value.trim());
 
 const fillUrl = (token: string) => `${window.location.origin}/fill/${token}`;
 
@@ -68,9 +64,15 @@ interface CompanyCardProps {
   company: Company;
   isAuditor: boolean;
   onRequestDelete: (company: Company) => void;
+  onUpdated: (company: Company) => void;
 }
 
-function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) {
+function CompanyCard({
+  company,
+  isAuditor,
+  onRequestDelete,
+  onUpdated,
+}: CompanyCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -79,6 +81,7 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
   const [error, setError] = useState('');
   // id анкеты, для которой открыто окно настройки обязательности вопросов
   const [overridesFor, setOverridesFor] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -152,13 +155,21 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
               Удалить
             </button>
           ) : (
-            <button
-              onClick={handleCreateQuestionnaire}
-              disabled={busy}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {busy ? '...' : 'Создать анкету'}
-            </button>
+            <>
+              <button
+                onClick={() => setEditing(true)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Редактировать
+              </button>
+              <button
+                onClick={handleCreateQuestionnaire}
+                disabled={busy}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {busy ? '...' : 'Создать анкету'}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -224,6 +235,36 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
         </div>
       )}
 
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setEditing(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-xl bg-white rounded-xl border border-gray-200 shadow-xl p-5"
+          >
+            <h2 className="text-base font-semibold text-gray-900 mb-3">
+              Редактировать компанию
+            </h2>
+            <CompanyForm
+              company={company}
+              submitLabel="Сохранить"
+              busyLabel="Сохранение..."
+              fallbackError="Не удалось сохранить компанию"
+              onCancel={() => setEditing(false)}
+              onSubmit={async (payload) => {
+                const { data } = await updateCompany(company.id, payload);
+                onUpdated(data);
+                setEditing(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {overridesFor && (
         <QuestionOverridesDialog
           open
@@ -243,10 +284,6 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-
   const [toDelete, setToDelete] = useState<Company | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -258,51 +295,13 @@ export default function CompaniesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const setEmail = (index: number, value: string) =>
-    setForm((p) => ({
-      ...p,
-      contactEmails: p.contactEmails.map((email, i) => (i === index ? value : email)),
-    }));
-
-  const addEmail = () =>
-    setForm((p) => ({ ...p, contactEmails: [...p.contactEmails, ''] }));
-
-  const removeEmail = (index: number) =>
-    setForm((p) => ({
-      ...p,
-      contactEmails: p.contactEmails.filter((_, i) => i !== index),
-    }));
-
-  const handleCreate = async (e: FormEvent) => {
-    e.preventDefault();
-
-    const emails = form.contactEmails.map((email) => email.trim()).filter(Boolean);
-    if (emails.length === 0) {
-      setCreateError('Укажите хотя бы один контактный email');
-      return;
-    }
-    if (!emails.every(isEmail)) {
-      setCreateError('Проверьте формат email — один из адресов заполнен некорректно');
-      return;
-    }
-
-    setCreating(true);
-    setCreateError('');
-    try {
-      const { data } = await createCompany({
-        name: form.name,
-        inn: form.inn || undefined,
-        contactName: form.contactName,
-        contactEmails: emails,
-      });
-      setCompanies((prev) => [...prev, data]);
-      setForm(EMPTY_FORM);
-    } catch (err) {
-      setCreateError(errorMessage(err, 'Не удалось создать компанию'));
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = async (payload: CompanyFormPayload) => {
+    const { data } = await createCompany(payload);
+    setCompanies((prev) => [...prev, data]);
   };
+
+  const handleUpdated = (updated: Company) =>
+    setCompanies((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
 
   const closeDeleteDialog = () => {
     setToDelete(null);
@@ -334,80 +333,13 @@ export default function CompaniesPage() {
       {!isAuditor && (
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-800 mb-3">Добавить компанию</h2>
-        <form onSubmit={handleCreate} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
-              type="text"
-              required
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="Название компании"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              value={form.inn}
-              onChange={(e) => setForm((p) => ({ ...p, inn: e.target.value }))}
-              placeholder="ИНН (необязательно)"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              required
-              value={form.contactName}
-              onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
-              placeholder="Контактное лицо"
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-600">
-              Контактные email
-            </label>
-            {form.contactEmails.map((email, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(i, e.target.value)}
-                  placeholder="Контактный email"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {form.contactEmails.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEmail(i)}
-                    aria-label="Удалить email"
-                    title="Удалить email"
-                    className="shrink-0 w-8 h-8 flex items-center justify-center text-gray-400 border border-gray-200 rounded-lg hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addEmail}
-              className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              + добавить ещё email
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={creating}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {creating ? 'Добавление...' : 'Добавить компанию'}
-            </button>
-            {createError && <span className="text-sm text-red-600">{createError}</span>}
-          </div>
-        </form>
+        <CompanyForm
+          submitLabel="Добавить компанию"
+          busyLabel="Добавление..."
+          fallbackError="Не удалось создать компанию"
+          resetOnSuccess
+          onSubmit={handleCreate}
+        />
       </div>
       )}
 
@@ -423,6 +355,7 @@ export default function CompaniesPage() {
               company={c}
               isAuditor={isAuditor}
               onRequestDelete={setToDelete}
+              onUpdated={handleUpdated}
             />
           ))}
         </div>
