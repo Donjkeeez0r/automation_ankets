@@ -18,6 +18,7 @@ import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { SetOverridesDto } from './dto/question-override.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('questionnaire')
@@ -109,5 +110,23 @@ export class QuestionnaireController {
   @Roles(Role.AUDITOR)
   remove(@Param('id') id: string) {
     return this.questionnaireService.remove(id);
+  }
+
+  @Patch(':id/question-overrides')
+  @Roles(Role.EMPLOYEE)
+  setOverrides(
+    @Param('id') questionnaireId: string,
+    @Body() dto: SetOverridesDto,
+  ) {
+    return this.questionnaireService.setQuestionOverrides(
+      questionnaireId,
+      dto.overrides,
+    );
+  }
+
+  @Get(':id/question-overrides')
+  @Roles(Role.EMPLOYEE)
+  getOverrides(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.getQuestionOverrides(questionnaireId);
   }
 }

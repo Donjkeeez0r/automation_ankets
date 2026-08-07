@@ -324,6 +324,13 @@ export default function FillPage() {
 
   if (!link) return null;
 
+  // Обязательность вопроса для этой анкеты: индивидуальное переопределение,
+  // если оно задано сотрудником, иначе глобальное значение вопроса.
+  const overrideMap = new Map(
+    (link.questionnaire.overrides ?? []).map((o) => [o.questionId, o.required]),
+  );
+  const isRequired = (q: Question) => overrideMap.get(q.id) ?? q.required;
+
   const visibleSections = getVisibleSections();
   const sectionKeys = Object.keys(SECTION_LABELS).filter((s) => visibleSections.has(s));
 
@@ -394,7 +401,7 @@ export default function FillPage() {
                       <p className="text-sm text-gray-800 mb-3">
                         <span className="font-medium text-gray-400 mr-2">{q.code}</span>
                         {q.text}
-                        {q.required && (
+                        {isRequired(q) && (
                           <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
                             *
                           </span>

@@ -61,6 +61,11 @@ export class LinksService {
               },
             },
             answers: true,
+            // Индивидуальная обязательность вопросов для этой анкеты —
+            // подрядчик должен видеть актуальные правила при заполнении
+            overrides: {
+              select: { questionId: true, required: true },
+            },
           },
         },
       },

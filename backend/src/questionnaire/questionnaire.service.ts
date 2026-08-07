@@ -50,13 +50,25 @@ export class QuestionnaireService {
       contractorsRelevant,
     } = this.scoringService.getSectionRelevance(answers);
 
-    const requiredQuestions = await this.prismaService.question.findMany({
-      where: { required: true },
+    const allQuestions = await this.prismaService.question.findMany();
+
+    const overrides = await this.prismaService.questionOverride.findMany({
+      where: { questionnaireId },
     });
+
+    const overrideMap = new Map(
+      overrides.map((o) => [o.questionId, o.required]),
+    );
 
     const missing: string[] = [];
 
-    for (const q of requiredQuestions) {
+    for (const q of allQuestions) {
+      const isRequired = overrideMap.has(q.id)
+        ? overrideMap.get(q.id)!
+        : q.required;
+
+      if (!isRequired) continue;
+
       if (q.section === 'gis' && !gisRelevant) continue;
       if (q.section === 'pdn' && !pdnRelevant) continue;
       if (q.section === 'remote_access' && !remoteRelevant) continue;
@@ -352,5 +364,43 @@ export class QuestionnaireService {
         data: { deadlineNotifiedAt: now },
       });
     }
+  }
+
+  async setQuestionOverrides(
+    questionnaireId: string,
+    overrides: { questionId: string; required: boolean }[],
+  ) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    for (const override of overrides) {
+      await this.prismaService.questionOverride.upsert({
+        where: {
+          questionnaireId_questionId: {
+            questionnaireId,
+            questionId: override.questionId,
+          },
+        },
+        update: { required: override.required },
+        create: {
+          questionnaireId,
+          questionId: override.questionId,
+          required: override.required,
+        },
+      });
+    }
+
+    return { message: 'Обязательность вопросов обновлена' };
+  }
+
+  async getQuestionOverrides(questionnaireId: string) {
+    return this.prismaService.questionOverride.findMany({
+      where: { questionnaireId },
+    });
   }
 }

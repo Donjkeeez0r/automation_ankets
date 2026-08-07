@@ -9,6 +9,7 @@ import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
 import { useAuth } from '../../context/AuthContext';
 import type { Company, CompanyQuestionnaire, CompanyLink } from '../../types';
 
@@ -76,6 +77,8 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
   const [questionnaires, setQuestionnaires] = useState<CompanyQuestionnaire[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // id анкеты, для которой открыто окно настройки обязательности вопросов
+  const [overridesFor, setOverridesFor] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -184,13 +187,22 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
                       </span>
                     </div>
                     {!isAuditor && (
-                      <button
-                        onClick={() => handleCreateLink(q.id)}
-                        disabled={busy}
-                        className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                      >
-                        Отправить ОЛ
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setOverridesFor(q.id)}
+                          disabled={busy}
+                          className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                        >
+                          Настроить обязательность вопросов
+                        </button>
+                        <button
+                          onClick={() => handleCreateLink(q.id)}
+                          disabled={busy}
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                        >
+                          Отправить ОЛ
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -210,6 +222,14 @@ function CompanyCard({ company, isAuditor, onRequestDelete }: CompanyCardProps) 
             </div>
           )}
         </div>
+      )}
+
+      {overridesFor && (
+        <QuestionOverridesDialog
+          open
+          questionnaireId={overridesFor}
+          onClose={() => setOverridesFor(null)}
+        />
       )}
     </div>
   );

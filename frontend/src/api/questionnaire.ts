@@ -5,6 +5,7 @@ import type {
   ScoringResult,
   Recommendation,
   Status,
+  QuestionOverride,
 } from '../types';
 
 export const getAllQuestionnaires = () =>
@@ -42,6 +43,18 @@ export const updateStatus = (
     status,
     comment,
     deadlineAt,
+  });
+
+// EMPLOYEE: переопределения обязательности вопросов для конкретной анкеты
+export const getQuestionOverrides = (id: string) =>
+  api.get<QuestionOverride[]>(`/questionnaire/${id}/question-overrides`);
+
+export const setQuestionOverrides = (
+  id: string,
+  overrides: QuestionOverride[],
+) =>
+  api.patch<{ message: string }>(`/questionnaire/${id}/question-overrides`, {
+    overrides,
   });
 
 // AUDITOR: удалить анкету со всей историей

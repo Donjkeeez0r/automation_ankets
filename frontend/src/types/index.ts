@@ -75,6 +75,12 @@ export interface Question {
   required: boolean;
 }
 
+// Индивидуальное переопределение обязательности вопроса для конкретной анкеты
+export interface QuestionOverride {
+  questionId: string;
+  required: boolean;
+}
+
 export interface Answer {
   questionId: string;
   value: string;
@@ -137,6 +143,7 @@ export interface LinkQuestionnaire {
   comment?: string | null;
   company?: CompanyRef;
   answers?: Answer[];
+  overrides?: QuestionOverride[];
 }
 
 export interface LinkByToken {
