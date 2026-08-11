@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getCompanies,
   createCompany,
@@ -12,8 +12,19 @@ import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyForm';
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
+import SearchInput from '../../components/SearchInput';
+import Pagination from '../../components/Pagination';
 import { useAuth } from '../../context/AuthContext';
+import { usePagination } from '../../lib/pagination';
+import { matchesQuery } from '../../lib/search';
 import type { Company, CompanyQuestionnaire, CompanyLink } from '../../types';
+
+type CompanySort = 'name' | 'createdAt';
+
+const SORT_LABELS: Record<CompanySort, string> = {
+  name: 'По названию (А-Я)',
+  createdAt: 'Сначала новые',
+};
 
 function errorMessage(err: unknown, fallback: string): string {
   const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
@@ -288,6 +299,9 @@ export default function CompaniesPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<CompanySort>('name');
+
   useEffect(() => {
     getCompanies()
       .then((r) => setCompanies(r.data))
@@ -323,6 +337,24 @@ export default function CompaniesPage() {
     }
   };
 
+  const visible = useMemo(() => {
+    const filtered = companies.filter((c) =>
+      matchesQuery(query, [c.name, c.contactName, ...c.contactEmails]),
+    );
+    return [...filtered].sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name, 'ru');
+      // сначала новые; компании без даты уходят в конец
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    });
+  }, [companies, query, sort]);
+
+  const { page, totalPages, pageItems, setPage } = usePagination(
+    visible,
+    `${query}|${sort}`,
+  );
+
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
 
@@ -343,13 +375,41 @@ export default function CompaniesPage() {
       </div>
       )}
 
+      {companies.length > 0 && (
+        <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <SearchInput
+              value={query}
+              onChange={setQuery}
+              placeholder="Поиск по названию, контакту или email"
+            />
+          </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as CompanySort)}
+            aria-label="Сортировка компаний"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {(Object.keys(SORT_LABELS) as CompanySort[]).map((key) => (
+              <option key={key} value={key}>
+                {SORT_LABELS[key]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {companies.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
           Компании ещё не добавлены
         </div>
+      ) : visible.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
+          Ничего не найдено
+        </div>
       ) : (
         <div className="space-y-3">
-          {companies.map((c) => (
+          {pageItems.map((c) => (
             <CompanyCard
               key={c.id}
               company={c}
@@ -360,6 +420,8 @@ export default function CompaniesPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       <ConfirmDialog
         open={toDelete !== null}

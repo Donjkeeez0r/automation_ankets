@@ -1,6 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getAllQuestions, updateQuestionRequired } from '../../api/questionnaire';
+import SearchInput from '../../components/SearchInput';
+import FilterChips, { type FilterChip } from '../../components/FilterChips';
+import Pagination from '../../components/Pagination';
+import { usePagination } from '../../lib/pagination';
+import { matchesQuery } from '../../lib/search';
 import type { Question } from '../../types';
+
+type RequiredFilter = 'ALL' | 'REQUIRED' | 'OPTIONAL';
+
+const REQUIRED_CHIPS: FilterChip<RequiredFilter>[] = [
+  { value: 'ALL', label: 'Все' },
+  { value: 'REQUIRED', label: 'Обязательные' },
+  { value: 'OPTIONAL', label: 'Необязательные' },
+];
 
 const SECTION_LABELS: Record<string, string> = {
   general_info:  '1.1 Общие сведения',
@@ -52,6 +65,9 @@ export default function QuestionsPage() {
   const [savingIds, setSavingIds] = useState<Record<string, boolean>>({});
   const [errorIds, setErrorIds] = useState<Record<string, boolean>>({});
 
+  const [query, setQuery] = useState('');
+  const [requiredFilter, setRequiredFilter] = useState<RequiredFilter>('ALL');
+
   useEffect(() => {
     getAllQuestions()
       .then(({ data }) => setQuestions(data))
@@ -79,16 +95,47 @@ export default function QuestionsPage() {
     }
   };
 
+  // Раскладываем в порядке «раздел, затем order внутри раздела»: страницы
+  // должны резать список по тому же порядку, в котором он показывается.
+  const sectionRank = (section: string) => {
+    const idx = SECTION_ORDER.indexOf(section);
+    return idx === -1 ? SECTION_ORDER.length : idx;
+  };
+
+  const visible = useMemo(() => {
+    const filtered = questions.filter(
+      (q) =>
+        (requiredFilter === 'ALL' ||
+          q.required === (requiredFilter === 'REQUIRED')) &&
+        matchesQuery(query, [q.text, q.code]),
+    );
+    return filtered.sort(
+      (a, b) =>
+        sectionRank(a.section) - sectionRank(b.section) ||
+        a.section.localeCompare(b.section) ||
+        a.order - b.order,
+    );
+  }, [questions, query, requiredFilter]);
+
+  const { page, totalPages, pageItems, setPage } = usePagination(
+    visible,
+    `${query}|${requiredFilter}`,
+  );
+
+  // разделы строим по вопросам текущей страницы — пустые секции не показываем
+  const sectionKeys = useMemo(
+    () => [
+      ...SECTION_ORDER.filter((s) => pageItems.some((q) => q.section === s)),
+      ...[...new Set(pageItems.map((q) => q.section))].filter(
+        (s) => !SECTION_ORDER.includes(s),
+      ),
+    ],
+    [pageItems],
+  );
+
   if (loading) {
     return <div className="text-sm text-gray-500">Загрузка...</div>;
   }
-
-  const sectionKeys = [
-    ...SECTION_ORDER.filter((s) => questions.some((q) => q.section === s)),
-    ...[...new Set(questions.map((q) => q.section))].filter(
-      (s) => !SECTION_ORDER.includes(s),
-    ),
-  ];
 
   return (
     <div className="max-w-4xl">
@@ -108,11 +155,31 @@ export default function QuestionsPage() {
         </div>
       )}
 
+      {questions.length > 0 && (
+        <div className="mb-6 space-y-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Поиск по тексту вопроса или коду (например, 1.2.6)"
+          />
+          <FilterChips
+            options={REQUIRED_CHIPS}
+            value={requiredFilter}
+            onChange={setRequiredFilter}
+            label="Фильтр по обязательности"
+          />
+        </div>
+      )}
+
+      {questions.length > 0 && visible.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
+          Ничего не найдено
+        </div>
+      )}
+
       <div className="space-y-6">
         {sectionKeys.map((sectionKey) => {
-          const sectionQuestions = questions
-            .filter((q) => q.section === sectionKey)
-            .sort((a, b) => a.order - b.order);
+          const sectionQuestions = pageItems.filter((q) => q.section === sectionKey);
 
           return (
             <div
@@ -153,6 +220,8 @@ export default function QuestionsPage() {
           );
         })}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
     </div>
   );
 }

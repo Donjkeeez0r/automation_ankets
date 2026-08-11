@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   getUsers,
   createUser,
@@ -6,10 +6,17 @@ import {
   deleteUser,
   resetPassword,
 } from '../../api/users';
+import SearchInput from '../../components/SearchInput';
+import FilterChips, { type FilterChip } from '../../components/FilterChips';
+import Pagination from '../../components/Pagination';
 import { ROLE_LABELS } from '../../lib/roles';
+import { usePagination } from '../../lib/pagination';
+import { matchesQuery } from '../../lib/search';
 import type { ManagedUser, Role } from '../../types';
 
 const ROLES: Role[] = ['ADMIN', 'EMPLOYEE', 'AUDITOR'];
+
+type RoleFilter = Role | 'ALL';
 
 const EMPTY_FORM = { email: '', name: '', organization: '', role: 'EMPLOYEE' as Role };
 
@@ -173,6 +180,9 @@ export default function UsersPage() {
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [editing, setEditing] = useState<ManagedUser | null>(null);
 
+  const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
+
   const load = () => {
     getUsers()
       .then((r) => setUsers(r.data))
@@ -217,6 +227,26 @@ export default function UsersPage() {
       alert('Не удалось сбросить пароль');
     }
   };
+
+  const roleChips: FilterChip<RoleFilter>[] = [
+    { value: 'ALL', label: 'Все' },
+    ...ROLES.map((r) => ({ value: r as RoleFilter, label: ROLE_LABELS[r] })),
+  ];
+
+  const visible = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          (roleFilter === 'ALL' || u.role === roleFilter) &&
+          matchesQuery(query, [u.name, u.email, u.organization]),
+      ),
+    [users, query, roleFilter],
+  );
+
+  const { page, totalPages, pageItems, setPage } = usePagination(
+    visible,
+    `${query}|${roleFilter}`,
+  );
 
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
@@ -278,9 +308,29 @@ export default function UsersPage() {
         )}
       </div>
 
+      {users.length > 0 && (
+        <div className="mb-5 space-y-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Поиск по имени, email или организации"
+          />
+          <FilterChips
+            options={roleChips}
+            value={roleFilter}
+            onChange={setRoleFilter}
+            label="Фильтр по роли"
+          />
+        </div>
+      )}
+
       {users.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
           Пользователи не найдены
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
+          Ничего не найдено
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
@@ -295,7 +345,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {users.map((u) => (
+              {pageItems.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-gray-700">{u.email}</td>
                   <td className="px-6 py-4 font-medium text-gray-900">{u.name}</td>
@@ -329,6 +379,8 @@ export default function UsersPage() {
           </table>
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       {generatedPassword && (
         <PasswordModal
