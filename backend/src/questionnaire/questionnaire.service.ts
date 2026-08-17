@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +19,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class QuestionnaireService {
+  private readonly logger = new Logger(QuestionnaireService.name);
+
   constructor(
     private prismaService: PrismaService,
     private scoringService: ScoringService,
@@ -182,17 +185,34 @@ export class QuestionnaireService {
       data: { status: 'SUBMITTED' },
     });
 
-    await this.scoringService.calculateScore(questionnaireId);
+    // Статус уже переведён в SUBMITTED, поэтому побочные эффекты ниже не должны
+    // ронять ответ: иначе подрядчик увидит ошибку у успешно отправленной анкеты,
+    // а повторная попытка упрётся в «Анкета уже была отправлена!».
+    try {
+      await this.scoringService.calculateScore(questionnaireId);
+    } catch (err) {
+      this.logger.error(
+        `Не удалось рассчитать скоринг для анкеты ${questionnaireId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
 
-    const auditorEmails = await this.usersService.getAuditorEmails();
-    for (const email of auditorEmails) {
-      await this.notificationsService.sendMail(
-        email,
-        'Новая анкета на проверку',
-        `
+    try {
+      const auditorEmails = await this.usersService.getAuditorEmails();
+      for (const email of auditorEmails) {
+        await this.notificationsService.sendMail(
+          email,
+          'Новая анкета на проверку',
+          `
           <p>Поступила новая анкета от компании «${questionnaire.company.name}» для проверки.</p>
           <p>Проверьте её в системе анкетирования.</p>
         `,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `Не удалось уведомить аудиторов об анкете ${questionnaireId}`,
+        err instanceof Error ? err.stack : String(err),
       );
     }
 

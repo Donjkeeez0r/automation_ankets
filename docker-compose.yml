@@ -35,6 +35,8 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
     ports:
       - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
 
   frontend:
     build:
@@ -50,3 +52,4 @@ services:
 
 volumes:
   postgres_main:
+  uploads_data:

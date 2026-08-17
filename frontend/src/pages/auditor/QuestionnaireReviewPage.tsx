@@ -12,6 +12,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import AnswersView from '../../components/AnswersView';
 import ScoringTiles from '../../components/ScoringTiles';
 import RecommendationsList from '../../components/RecommendationsList';
+import ArtifactsView from '../../components/ArtifactsView';
 import type {
   Questionnaire,
   ScoringResult,
@@ -19,12 +20,13 @@ import type {
   Status,
 } from '../../types';
 
-type Tab = 'answers' | 'scoring' | 'recommendations';
+type Tab = 'answers' | 'scoring' | 'recommendations' | 'files';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'answers', label: 'Ответы' },
   { key: 'scoring', label: 'Скоринг' },
   { key: 'recommendations', label: 'Рекомендации' },
+  { key: 'files', label: 'Файлы' },
 ];
 
 export default function QuestionnaireReviewPage() {
@@ -246,6 +248,8 @@ export default function QuestionnaireReviewPage() {
         ) : (
           <RecommendationsList recommendations={recommendations} />
         ))}
+
+      {tab === 'files' && <ArtifactsView questionnaireId={questionnaire.id} />}
 
       <ConfirmDialog
         open={confirmDelete}

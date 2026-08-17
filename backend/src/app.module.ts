@@ -11,6 +11,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { LinksModule } from './links/links.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ArtifactsModule } from './artifacts/artifacts.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CompaniesModule,
     LinksModule,
     NotificationsModule,
+    ArtifactsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

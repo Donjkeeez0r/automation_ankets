@@ -155,6 +155,16 @@ export interface LinkByToken {
   questionnaire: LinkQuestionnaire;
 }
 
+// Файл-артефакт, прикреплённый к анкете
+export interface Artifact {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  questionId?: string | null;
+}
+
 export interface ScoringResult {
   id: string;
   questionnaireId: string;

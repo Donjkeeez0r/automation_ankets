@@ -68,6 +68,23 @@ model Questionnaire {
   overrides           QuestionOverride[]
 
   links               QuestionnaireLink[]
+
+  artifacts           Artifact[]
+}
+
+model Artifact {
+  id                  String          @id @default(uuid())
+  fileName            String
+  storedPath          String
+  mimeType            String
+  size                Int
+  uploadedAt          DateTime        @default(now())
+
+  questionnaireId     String
+  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  questionId          String?
+  question            Question?       @relation(fields: [questionId], references: [id], onDelete: SetNull)
 }
 
 model QuestionOverride {
@@ -106,6 +123,8 @@ model Question {
   answers             Answer[]
 
   overrides           QuestionOverride[]
+
+  artifacts           Artifact[]
 }
 
 model Answer {

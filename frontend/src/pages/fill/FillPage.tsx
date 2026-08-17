@@ -1,8 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { getAllQuestions } from '../../api/questionnaire';
 import { getLinkByToken, saveAnswersByToken, submitByToken } from '../../api/links';
-import type { Question, Answer, LinkByToken } from '../../types';
+import {
+  uploadArtifactByToken,
+  getArtifactsByToken,
+  deleteArtifactByToken,
+  formatFileSize,
+} from '../../api/artifacts';
+import type { Question, Answer, LinkByToken, Artifact } from '../../types';
 
 const SECTION_LABELS: Record<string, string> = {
   general_info:  '1.1 Общие сведения',
@@ -77,6 +83,17 @@ function missingCodesFromError(err: unknown): string[] | null {
     ?.missingCodes;
   if (!Array.isArray(codes) || codes.length === 0) return null;
   return codes.filter((c): c is string => typeof c === 'string');
+}
+
+// Анкета уже отправлена, если бэкенд вернул 403 с reason: 'ALREADY_SUBMITTED'
+// (ссылка деактивирована после отправки) либо 400 из submitQuestionnaire при
+// статусе не DRAFT/REVISION. Для подрядчика это не ошибка: анкета доставлена,
+// значит нужно показать экран-подтверждение.
+function isAlreadySubmittedError(err: unknown): boolean {
+  const data = (err as { response?: { data?: { message?: unknown; reason?: unknown } } })?.response
+    ?.data;
+  if (data?.reason === 'ALREADY_SUBMITTED') return true;
+  return typeof data?.message === 'string' && data.message.includes('уже была отправлена');
 }
 
 function triggersAdditionalValue(question: Question, value: string): boolean {
@@ -186,6 +203,118 @@ function AnswerInput({
   return null;
 }
 
+// Блок прикрепления файлов для подрядчика — работает по публичным
+// эндпоинтам /links/:token/artifacts, без JWT.
+function ArtifactsBlock({ token }: { token: string }) {
+  const [files, setFiles] = useState<Artifact[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getArtifactsByToken(token)
+      .then((r) => setFiles(r.data))
+      .catch(() => setError('Не удалось загрузить список файлов.'));
+  }, [token]);
+
+  const upload = async (selected: FileList | null) => {
+    if (!selected || selected.length === 0) return;
+    setUploading(true);
+    setError('');
+    try {
+      for (const file of Array.from(selected)) {
+        const { data } = await uploadArtifactByToken(token, file);
+        setFiles((prev) => [data, ...prev]);
+      }
+    } catch {
+      setError('Не удалось загрузить файл. Попробуйте ещё раз.');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const remove = async (id: string) => {
+    setRemovingId(id);
+    setError('');
+    try {
+      await deleteArtifactByToken(token, id);
+      setFiles((prev) => prev.filter((f) => f.id !== id));
+    } catch {
+      setError('Не удалось удалить файл.');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <h2 className="text-sm font-semibold text-gray-800">Прикреплённые файлы</h2>
+      </div>
+      <div className="p-6">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            void upload(e.dataTransfer.files);
+          }}
+          onClick={() => inputRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg px-4 py-8 text-center cursor-pointer transition-colors ${
+            dragOver
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-300 hover:border-blue-400 bg-gray-50/50'
+          }`}
+        >
+          <div className="text-2xl mb-2">📎</div>
+          <p className="text-sm text-gray-600">
+            Перетащите файлы сюда или{' '}
+            <span className="text-blue-600 font-medium">выберите на компьютере</span>
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => void upload(e.target.files)}
+          />
+        </div>
+
+        {uploading && <div className="mt-3 text-sm text-gray-500">Загрузка файла...</div>}
+        {error && (
+          <div className="mt-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+        )}
+
+        {files.length > 0 && (
+          <ul className="mt-4 divide-y divide-gray-100 border border-gray-200 rounded-lg">
+            {files.map((f) => (
+              <li key={f.id} className="flex items-center gap-3 px-4 py-2.5">
+                <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{f.fileName}</span>
+                <span className="shrink-0 text-xs text-gray-400">{formatFileSize(f.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => void remove(f.id)}
+                  disabled={removingId === f.id}
+                  className="shrink-0 text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  {removingId === f.id ? 'Удаление...' : 'Удалить'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FillPage() {
   const { token } = useParams<{ token: string }>();
 
@@ -217,7 +346,12 @@ export default function FillPage() {
         setAnswers(existing);
         setAdditionalValues(existingAdditional);
       })
-      .catch(() => setInvalid(true))
+      .catch((err) => {
+        // Ссылку деактивирует отправка анкеты — при повторном заходе показываем
+        // подтверждение отправки, а не «Ссылка недоступна».
+        if (isAlreadySubmittedError(err)) setSubmitted(true);
+        else setInvalid(true);
+      })
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -274,6 +408,10 @@ export default function FillPage() {
       await submitByToken(token);
       setSubmitted(true);
     } catch (err) {
+      if (isAlreadySubmittedError(err)) {
+        setSubmitted(true);
+        return;
+      }
       const missing = missingCodesFromError(err);
       setError(
         missing
@@ -313,9 +451,12 @@ export default function FillPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
           <div className="text-3xl mb-3">✅</div>
-          <h1 className="text-lg font-bold text-gray-900 mb-2">Анкета отправлена</h1>
+          <h1 className="text-lg font-bold text-gray-900 mb-2">
+            Анкета успешно отправлена
+          </h1>
           <p className="text-sm text-gray-500">
-            Спасибо! Ваши ответы переданы на проверку. Эту вкладку можно закрыть.
+            Спасибо! Ваши ответы и приложенные файлы переданы на проверку.
+            Мы свяжемся с вами после её завершения. Эту вкладку можно закрыть.
           </p>
         </div>
       </div>
@@ -420,6 +561,8 @@ export default function FillPage() {
               </div>
             );
           })}
+
+          {token && <ArtifactsBlock token={token} />}
         </div>
 
         {error && (
