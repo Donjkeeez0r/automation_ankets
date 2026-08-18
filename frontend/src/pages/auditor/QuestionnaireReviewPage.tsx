@@ -143,6 +143,16 @@ export default function QuestionnaireReviewPage() {
               {questionnaire.company.contactEmails.join(', ')}
             </p>
           )}
+          <p className="text-sm text-gray-500">
+            Анкету заполнил:{' '}
+            {questionnaire.filledByEmployee
+              ? `${questionnaire.filledByEmployee.name}${
+                  questionnaire.filledByEmployee.position
+                    ? ` (${questionnaire.filledByEmployee.position})`
+                    : ''
+                }`
+              : 'Аноним'}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <StatusBadge status={questionnaire.status} />

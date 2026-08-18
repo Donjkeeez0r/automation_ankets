@@ -65,6 +65,14 @@ export interface CompanyRef {
   contactEmails: string[];
 }
 
+// Сотрудник компании-подрядчика — тот, кто может заполнить анкету
+export interface ContractorEmployee {
+  id: string;
+  name: string;
+  position?: string | null;
+  email?: string | null;
+}
+
 export interface Question {
   id: string;
   code: string;
@@ -105,6 +113,7 @@ export interface Questionnaire {
   deadlineAt?: string | null;
   company?: CompanyRef;
   answers?: AnswerWithQuestion[];
+  filledByEmployee?: ContractorEmployee | null;
 }
 
 export interface QuestionnaireLink {
@@ -144,6 +153,7 @@ export interface LinkQuestionnaire {
   company?: CompanyRef;
   answers?: Answer[];
   overrides?: QuestionOverride[];
+  filledByEmployee?: ContractorEmployee | null;
 }
 
 export interface LinkByToken {

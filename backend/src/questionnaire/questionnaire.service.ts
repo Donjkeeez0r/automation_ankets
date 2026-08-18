@@ -154,6 +154,7 @@ export class QuestionnaireService {
             contactEmails: true,
           },
         },
+        filledByEmployee: true,
       },
     });
 
@@ -421,6 +422,13 @@ export class QuestionnaireService {
   async getQuestionOverrides(questionnaireId: string) {
     return this.prismaService.questionOverride.findMany({
       where: { questionnaireId },
+    });
+  }
+
+  async setFilledByEmployee(questionnaireId: string, employeeId: string) {
+    return this.prismaService.questionnaire.update({
+      where: { id: questionnaireId },
+      data: { filledByEmployeeId: employeeId },
     });
   }
 }

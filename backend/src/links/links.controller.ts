@@ -20,6 +20,7 @@ import { QuestionnaireService } from '../questionnaire/questionnaire.service';
 import { SubmitAnswerDto } from '../questionnaire/dto/submit-answer.dto';
 import { ArtifactsService } from '../artifacts/artifacts.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CompaniesService } from '../companies/companies.service';
 
 @Controller('links')
 export class LinksController {
@@ -29,6 +30,7 @@ export class LinksController {
     private linksService: LinksService,
     private questionnaireService: QuestionnaireService,
     private artifactsService: ArtifactsService,
+    private companiesService: CompaniesService,
   ) {}
 
   @Post('questionnaire/:id')
@@ -76,8 +78,7 @@ export class LinksController {
     const result = await this.questionnaireService.submitQuestionnaire(
       link.questionnaireId,
     );
-    // Анкета уже переведена в SUBMITTED — если деактивация ссылки упадёт,
-    // подрядчик всё равно должен получить успешный ответ.
+
     try {
       await this.linksService.deactivate(token);
     } catch (err) {
@@ -103,12 +104,28 @@ export class LinksController {
     const link = await this.linksService.findByToken(token); // проверяем что ссылка валидна
     const artifact = await this.artifactsService.getById(artifactId);
 
-    // Ссылка даёт доступ только к файлам своей анкеты — иначе по известному id
-    // можно было бы удалить артефакт чужой анкеты.
     if (artifact.questionnaireId !== link.questionnaireId) {
       throw new NotFoundException('Файл не найден!');
     }
 
     return this.artifactsService.remove(artifactId);
+  }
+
+  @Get(':token/employees')
+  async getEmployees(@Param('token') token: string) {
+    const link = await this.linksService.findByToken(token);
+    return this.companiesService.getEmployees(link.questionnaire.companyId);
+  }
+
+  @Post(':token/select-employee')
+  async selectEmployee(
+    @Param('token') token: string,
+    @Body('employeeId') employeeId: string,
+  ) {
+    const link = await this.linksService.findByToken(token);
+    return this.questionnaireService.setFilledByEmployee(
+      link.questionnaireId,
+      employeeId,
+    );
   }
 }

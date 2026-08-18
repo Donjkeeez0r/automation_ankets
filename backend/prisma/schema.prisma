@@ -25,42 +25,57 @@ enum Status {
 }
 
 model User {
-  id                  String          @id @default(uuid())
-  email               String          @unique
-  password            String
-  role                Role            @default(EMPLOYEE)
-  name                String
-  organization        String
-  createdAt           DateTime        @default(now())
+  id                        String            @id @default(uuid())
+  email                     String            @unique
+  password                  String
+  role                      Role              @default(EMPLOYEE)
+  name                      String
+  organization              String
+  createdAt                 DateTime          @default(now())
 
-  employeeQuestionnaires    Questionnaire[]  @relation("EmployeeQuestionnaires")
+  employeeQuestionnaires    Questionnaire[]   @relation("EmployeeQuestionnaires")
 }
 
 model Company {
-  id                    String        @id @default(uuid())
+  id                    String                @id @default(uuid())
   name                  String
   inn                   String?
   contactName           String
   contactEmails         String[]
-  createdAt             DateTime      @default(now())
+  createdAt             DateTime              @default(now())
 
-  questionnaires  Questionnaire[]
+  questionnaires        Questionnaire[]
+
+  employees             ContactorEmployee[]
+}
+
+model ContactorEmployee {
+  id                    String                @id @default(uuid())
+  name                  String         
+  position              String?
+  email                 String?
+  createdAt             DateTime              @default(now())
+
+  companyId             String
+  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  filledQuestionnaires  Questionnaire[]
 }
 
 model Questionnaire {
-  id                  String          @id @default(uuid())
-  status              Status          @default(DRAFT)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt()
+  id                  String                @id @default(uuid())
+  status              Status                @default(DRAFT)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt()
   comment             String?
   deadlineAt          DateTime?
   deadlineNotifiedAt  DateTime?
 
   companyId           String
-  company             Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   employeeId          String
-  employee            User            @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
+  employee            User                  @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
 
   answers             Answer[]
   scoring             ScoringResult?
@@ -70,6 +85,9 @@ model Questionnaire {
   links               QuestionnaireLink[]
 
   artifacts           Artifact[]
+
+  filledByEmployeeId  String?
+  filledByEmployee    ContactorEmployee?    @relation(fields: [filledByEmployeeId], references: [id], onDelete: SetNull)
 }
 
 model Artifact {

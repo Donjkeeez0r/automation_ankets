@@ -1,14 +1,26 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { getAllQuestions } from '../../api/questionnaire';
-import { getLinkByToken, saveAnswersByToken, submitByToken } from '../../api/links';
+import {
+  getLinkByToken,
+  saveAnswersByToken,
+  submitByToken,
+  getEmployeesByToken,
+  selectEmployeeByToken,
+} from '../../api/links';
 import {
   uploadArtifactByToken,
   getArtifactsByToken,
   deleteArtifactByToken,
   formatFileSize,
 } from '../../api/artifacts';
-import type { Question, Answer, LinkByToken, Artifact } from '../../types';
+import type {
+  Question,
+  Answer,
+  LinkByToken,
+  Artifact,
+  ContractorEmployee,
+} from '../../types';
 
 const SECTION_LABELS: Record<string, string> = {
   general_info:  '1.1 Общие сведения',
@@ -315,6 +327,101 @@ function ArtifactsBlock({ token }: { token: string }) {
   );
 }
 
+// Экран «кто заполняет анкету»: показывается один раз, пока в анкете не
+// проставлен filledByEmployee. Список сотрудников ведёт сотрудник КОМПАНИИ.
+// Если список пуст, выбирать не из чего — сообщаем родителю через onEmpty,
+// и подрядчик заполняет анкету анонимно, без вызова select-employee.
+function EmployeeSelect({
+  token,
+  companyName,
+  onSelected,
+  onEmpty,
+}: {
+  token: string;
+  companyName?: string;
+  onSelected: (employee: ContractorEmployee) => void;
+  onEmpty: () => void;
+}) {
+  const [employees, setEmployees] = useState<ContractorEmployee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getEmployeesByToken(token)
+      .then((r) => {
+        setEmployees(r.data);
+        if (r.data.length === 0) onEmpty();
+      })
+      .catch(() => setError('Не удалось загрузить список сотрудников.'))
+      .finally(() => setLoading(false));
+    // onEmpty — стабильный setState-сеттер, перезапрашивать список не нужно
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const select = async (employee: ContractorEmployee) => {
+    setSavingId(employee.id);
+    setError('');
+    try {
+      await selectEmployeeByToken(token, employee.id);
+      onSelected(employee);
+    } catch {
+      setError('Не удалось сохранить выбор. Попробуйте ещё раз.');
+      setSavingId(null);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-6">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+            Анкетирование ИБ
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Выберите себя из списка</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Укажите, кто заполняет анкету{companyName ? ` от компании ${companyName}` : ''}.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          {loading ? (
+            <div className="text-sm text-gray-500">Загрузка списка сотрудников...</div>
+          ) : employees.length === 0 ? (
+            // Пустой список: родитель уже получил onEmpty и переключается на форму
+            <div className="text-sm text-gray-500">Открываем анкету...</div>
+          ) : (
+            <ul className="space-y-2">
+              {employees.map((e) => (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => void select(e)}
+                    disabled={savingId !== null}
+                    className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 transition-colors"
+                  >
+                    <div className="text-sm font-medium text-gray-900">{e.name}</div>
+                    {e.position && (
+                      <div className="text-xs text-gray-500 mt-0.5">{e.position}</div>
+                    )}
+                    {savingId === e.id && (
+                      <div className="text-xs text-blue-600 mt-1">Сохранение...</div>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {error && (
+            <div className="mt-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FillPage() {
   const { token } = useParams<{ token: string }>();
 
@@ -330,6 +437,10 @@ export default function FillPage() {
   const [error, setError] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(true);
+  // null — сотрудник ещё не выбран, показываем экран выбора вместо формы
+  const [filledBy, setFilledBy] = useState<ContractorEmployee | null>(null);
+  // у компании нет сотрудников — выбирать не из чего, пускаем к форме анонимно
+  const [noEmployees, setNoEmployees] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -345,6 +456,7 @@ export default function FillPage() {
         }
         setAnswers(existing);
         setAdditionalValues(existingAdditional);
+        setFilledBy(linkRes.data.questionnaire.filledByEmployee ?? null);
       })
       .catch((err) => {
         // Ссылку деактивирует отправка анкеты — при повторном заходе показываем
@@ -465,6 +577,18 @@ export default function FillPage() {
 
   if (!link) return null;
 
+  // Пока подрядчик не указал, кто заполняет анкету, форму не показываем.
+  if (!filledBy && !noEmployees && token) {
+    return (
+      <EmployeeSelect
+        token={token}
+        companyName={link.questionnaire.company?.name}
+        onSelected={setFilledBy}
+        onEmpty={() => setNoEmployees(true)}
+      />
+    );
+  }
+
   // Обязательность вопроса для этой анкеты: индивидуальное переопределение,
   // если оно задано сотрудником, иначе глобальное значение вопроса.
   const overrideMap = new Map(
@@ -488,6 +612,12 @@ export default function FillPage() {
               Компания: {link.questionnaire.company.name}
             </p>
           )}
+          <p className="text-sm text-gray-500 mt-0.5">
+            Заполняет:{' '}
+            {filledBy
+              ? `${filledBy.name}${filledBy.position ? ` (${filledBy.position})` : ''}`
+              : 'Аноним'}
+          </p>
         </div>
 
         {link.questionnaire.comment && (

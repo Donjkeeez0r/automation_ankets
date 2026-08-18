@@ -93,6 +93,7 @@ export class LinksService {
             overrides: {
               select: { questionId: true, required: true },
             },
+            filledByEmployee: true,
           },
         },
       },

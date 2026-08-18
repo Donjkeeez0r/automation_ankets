@@ -5,6 +5,9 @@ import {
   updateCompany,
   getCompanyQuestionnaires,
   deleteCompany,
+  getCompanyEmployees,
+  addCompanyEmployee,
+  deleteCompanyEmployee,
 } from '../../api/companies';
 import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
@@ -17,7 +20,12 @@ import Pagination from '../../components/Pagination';
 import { useAuth } from '../../context/AuthContext';
 import { usePagination } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
-import type { Company, CompanyQuestionnaire, CompanyLink } from '../../types';
+import type {
+  Company,
+  CompanyQuestionnaire,
+  CompanyLink,
+  ContractorEmployee,
+} from '../../types';
 
 type CompanySort = 'name' | 'createdAt';
 
@@ -67,6 +75,202 @@ function LinkRow({ link }: { link: CompanyLink }) {
       >
         {copied ? 'Скопировано ✓' : 'Копировать'}
       </button>
+    </div>
+  );
+}
+
+// Сотрудники компании-подрядчика: из этого списка подрядчик выбирает себя
+// на публичной FillPage. Монтируется только при раскрытой карточке компании.
+function EmployeesSection({
+  companyId,
+  isAuditor,
+}: {
+  companyId: string;
+  isAuditor: boolean;
+}) {
+  const [employees, setEmployees] = useState<ContractorEmployee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [position, setPosition] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const [toDelete, setToDelete] = useState<ContractorEmployee | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  useEffect(() => {
+    getCompanyEmployees(companyId)
+      .then((r) => setEmployees(r.data))
+      .catch((err) => setError(errorMessage(err, 'Не удалось загрузить сотрудников')))
+      .finally(() => setLoading(false));
+  }, [companyId]);
+
+  const closeForm = () => {
+    setAdding(false);
+    setName('');
+    setPosition('');
+    setEmail('');
+    setFormError('');
+  };
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setFormError('Укажите имя сотрудника');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    try {
+      const { data } = await addCompanyEmployee(companyId, {
+        name: name.trim(),
+        position: position.trim() || undefined,
+        email: email.trim() || undefined,
+      });
+      setEmployees((prev) =>
+        [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+      );
+      closeForm();
+    } catch (err) {
+      setFormError(errorMessage(err, 'Не удалось добавить сотрудника'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteCompanyEmployee(toDelete.id);
+      setEmployees((prev) => prev.filter((e) => e.id !== toDelete.id));
+      setToDelete(null);
+    } catch (err) {
+      setDeleteError(errorMessage(err, 'Не удалось удалить сотрудника'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const inputClass =
+    'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+          Сотрудники
+        </h3>
+        {!isAuditor && !adding && (
+          <button
+            onClick={() => setAdding(true)}
+            className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Добавить сотрудника
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="text-xs text-gray-500">Загрузка сотрудников...</div>
+      ) : error ? (
+        <div className="text-xs text-red-600">{error}</div>
+      ) : employees.length === 0 ? (
+        <div className="text-xs text-gray-500">
+          Сотрудники не добавлены. Пока список пуст, подрядчик заполняет анкету анонимно.
+        </div>
+      ) : (
+        <ul className="divide-y divide-gray-100 border border-gray-100 rounded-lg">
+          {employees.map((e) => (
+            <li key={e.id} className="flex items-center gap-3 px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-gray-800 truncate">{e.name}</div>
+                {(e.position || e.email) && (
+                  <div className="text-xs text-gray-500 truncate">
+                    {[e.position, e.email].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </div>
+              {!isAuditor && (
+                <button
+                  onClick={() => setToDelete(e)}
+                  className="shrink-0 text-xs text-red-600 hover:text-red-700"
+                >
+                  Удалить
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding && (
+        <form onSubmit={handleAdd} className="mt-3 space-y-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Имя сотрудника *"
+            className={inputClass}
+          />
+          <input
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+            placeholder="Должность (необязательно)"
+            className={inputClass}
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email (необязательно)"
+            className={inputClass}
+          />
+          {formError && <div className="text-xs text-red-600">{formError}</div>}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Добавление...' : 'Добавить'}
+            </button>
+            <button
+              type="button"
+              onClick={closeForm}
+              disabled={saving}
+              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+        </form>
+      )}
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Удалить сотрудника?"
+        description={
+          <p>
+            Сотрудник «{toDelete?.name ?? ''}» больше не будет отображаться в списке
+            выбора при заполнении анкеты. Уже заполненные анкеты сохранятся, но
+            останутся без указания заполнившего.
+          </p>
+        }
+        confirmLabel="Удалить"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setToDelete(null);
+          setDeleteError('');
+        }}
+      />
     </div>
   );
 }
@@ -243,6 +447,8 @@ function CompanyCard({
               ))}
             </div>
           )}
+
+          <EmployeesSection companyId={company.id} isAuditor={isAuditor} />
         </div>
       )}
 

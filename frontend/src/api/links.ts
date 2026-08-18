@@ -1,5 +1,10 @@
 import api from './client';
-import type { Answer, LinkByToken, QuestionnaireLink } from '../types';
+import type {
+  Answer,
+  ContractorEmployee,
+  LinkByToken,
+  QuestionnaireLink,
+} from '../types';
 
 // EMPLOYEE: сгенерировать одноразовую ссылку для анкеты
 export const createLink = (questionnaireId: string) =>
@@ -14,3 +19,10 @@ export const saveAnswersByToken = (token: string, answers: Answer[]) =>
 
 export const submitByToken = (token: string) =>
   api.post(`/links/${token}/submit`);
+
+// Список сотрудников компании — подрядчик выбирает себя перед заполнением
+export const getEmployeesByToken = (token: string) =>
+  api.get<ContractorEmployee[]>(`/links/${token}/employees`);
+
+export const selectEmployeeByToken = (token: string, employeeId: string) =>
+  api.post(`/links/${token}/select-employee`, { employeeId });

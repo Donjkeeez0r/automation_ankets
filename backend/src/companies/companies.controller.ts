@@ -16,6 +16,7 @@ import { CreateCompanyDto } from './dto/create-company.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import { CreateContactorEmployeeDto } from './dto/create-contactor-employee.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('companies')
@@ -56,5 +57,26 @@ export class CompaniesController {
   @Roles(Role.EMPLOYEE)
   update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
     return this.companiesService.update(id, dto);
+  }
+
+  @Post(':id/employees')
+  @Roles(Role.EMPLOYEE)
+  addEmployee(
+    @Param('id') companyId: string,
+    @Body() dto: CreateContactorEmployeeDto,
+  ) {
+    return this.companiesService.addEmployee(companyId, dto);
+  }
+
+  @Get(':id/employees')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  getEmployees(@Param('id') companyId: string) {
+    return this.companiesService.getEmployees(companyId);
+  }
+
+  @Delete('employees/:employeeId')
+  @Roles(Role.EMPLOYEE)
+  removeEmployee(@Param('employeeId') employeeId: string) {
+    return this.companiesService.removeEmployee(employeeId);
   }
 }
