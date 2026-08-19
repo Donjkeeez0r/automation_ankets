@@ -169,6 +169,10 @@ export interface LinkByToken {
   questionnaire: LinkQuestionnaire;
 }
 
+// Вид артефакта: обычное вложение подрядчика или гарантийное письмо,
+// которое загружает сотрудник ПАО / аудитор для подписания подрядчиком.
+export type ArtifactType = 'regular' | 'guarantee_letter';
+
 // Файл-артефакт, прикреплённый к анкете
 export interface Artifact {
   id: string;
@@ -177,6 +181,7 @@ export interface Artifact {
   size: number;
   uploadedAt: string;
   questionId?: string | null;
+  type: ArtifactType;
 }
 
 export interface ScoringResult {

@@ -16,6 +16,7 @@ export class ArtifactsService {
     questionnaireId: string,
     file: Express.Multer.File,
     questionId?: string,
+    type: string = 'regular',
   ) {
     const fixedFileName = Buffer.from(file.originalname, 'latin1').toString(
       'utf8',
@@ -38,6 +39,7 @@ export class ArtifactsService {
         size: file.size,
         questionnaireId,
         questionId,
+        type,
       },
     });
   }

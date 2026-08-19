@@ -105,6 +105,7 @@ model Artifact {
   mimeType            String
   size                Int
   uploadedAt          DateTime        @default(now())
+  type                String          @default("regular")
 
   questionnaireId     String
   questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)

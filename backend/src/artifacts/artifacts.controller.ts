@@ -68,4 +68,19 @@ export class ArtifactsController {
   remove(@Param('id') id: string) {
     return this.artifactsService.remove(id);
   }
+
+  @Post('questionnaire/:questionnaireId/guarantee-letter')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadGuaranteeLetter(
+    @Param('questionnaireId') questionnaireId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.artifactsService.saveFile(
+      questionnaireId,
+      file,
+      undefined,
+      'guarantee_letter',
+    );
+  }
 }

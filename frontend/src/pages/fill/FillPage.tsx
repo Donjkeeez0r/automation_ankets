@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useParams } from 'react-router-dom';
 import { getAllQuestions } from '../../api/questionnaire';
 import {
@@ -12,6 +13,8 @@ import {
   uploadArtifactByToken,
   getArtifactsByToken,
   deleteArtifactByToken,
+  downloadArtifactByToken,
+  saveBlobAs,
   formatFileSize,
 } from '../../api/artifacts';
 import type {
@@ -215,21 +218,98 @@ function AnswerInput({
   return null;
 }
 
+// Заметный блок вверху формы: сотрудник ПАО / аудитор направил подрядчику
+// гарантийное письмо на подписание. Показывается только при наличии таких
+// файлов и намеренно отделён от списка вложений самого подрядчика.
+function GuaranteeLetterBlock({
+  token,
+  letters,
+}: {
+  token: string;
+  letters: Artifact[];
+}) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  if (letters.length === 0) return null;
+
+  const download = async (artifact: Artifact) => {
+    setDownloadingId(artifact.id);
+    setError('');
+    try {
+      const { data } = await downloadArtifactByToken(token, artifact.id);
+      saveBlobAs(data, artifact.fileName);
+    } catch {
+      setError(`Не удалось скачать файл «${artifact.fileName}».`);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  return (
+    <div className="mb-6 rounded-xl border-2 border-blue-300 bg-blue-50 overflow-hidden">
+      <div className="px-6 py-4 flex items-start gap-3">
+        <div className="text-2xl leading-none" aria-hidden="true">
+          📄
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-bold text-blue-900">
+            Вам направлено гарантийное письмо для подписания
+          </h2>
+          <p className="text-sm text-blue-800 mt-1">
+            Скачайте файл, подпишите его и приложите скан в блоке «Прикреплённые
+            файлы» внизу формы.
+          </p>
+        </div>
+      </div>
+      <ul className="divide-y divide-blue-200 border-t border-blue-200">
+        {letters.map((l) => (
+          <li key={l.id} className="flex items-center gap-3 px-6 py-3">
+            <span className="flex-1 min-w-0 text-sm font-medium text-blue-900 truncate">
+              {l.fileName}
+            </span>
+            <span className="shrink-0 text-xs text-blue-700">
+              {formatFileSize(l.size)}
+            </span>
+            <button
+              type="button"
+              onClick={() => void download(l)}
+              disabled={downloadingId === l.id}
+              className="shrink-0 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {downloadingId === l.id ? 'Скачивание...' : 'Скачать'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && (
+        <div className="px-6 py-3 text-sm text-red-700 bg-red-50 border-t border-red-200">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Блок прикрепления файлов для подрядчика — работает по публичным
-// эндпоинтам /links/:token/artifacts, без JWT.
-function ArtifactsBlock({ token }: { token: string }) {
-  const [files, setFiles] = useState<Artifact[]>([]);
+// эндпоинтам /links/:token/artifacts, без JWT. Показывает только вложения
+// самого подрядчика: гарантийные письма живут в отдельном блоке сверху.
+function ArtifactsBlock({
+  token,
+  files,
+  setFiles,
+}: {
+  token: string;
+  files: Artifact[];
+  setFiles: Dispatch<SetStateAction<Artifact[]>>;
+}) {
   const [uploading, setUploading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    getArtifactsByToken(token)
-      .then((r) => setFiles(r.data))
-      .catch(() => setError('Не удалось загрузить список файлов.'));
-  }, [token]);
+  const ownFiles = files.filter((f) => f.type !== 'guarantee_letter');
 
   const upload = async (selected: FileList | null) => {
     if (!selected || selected.length === 0) return;
@@ -304,9 +384,9 @@ function ArtifactsBlock({ token }: { token: string }) {
           <div className="mt-3 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
         )}
 
-        {files.length > 0 && (
+        {ownFiles.length > 0 && (
           <ul className="mt-4 divide-y divide-gray-100 border border-gray-200 rounded-lg">
-            {files.map((f) => (
+            {ownFiles.map((f) => (
               <li key={f.id} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">{f.fileName}</span>
                 <span className="shrink-0 text-xs text-gray-400">{formatFileSize(f.size)}</span>
@@ -441,6 +521,9 @@ export default function FillPage() {
   const [filledBy, setFilledBy] = useState<ContractorEmployee | null>(null);
   // у компании нет сотрудников — выбирать не из чего, пускаем к форме анонимно
   const [noEmployees, setNoEmployees] = useState(false);
+  // Файлы анкеты: и вложения подрядчика, и гарантийные письма от ПАО.
+  // Держим список здесь, чтобы одним запросом накормить оба блока.
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
 
   useEffect(() => {
     if (!token) return;
@@ -465,6 +548,15 @@ export default function FillPage() {
         else setInvalid(true);
       })
       .finally(() => setLoading(false));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    // Ошибку намеренно глушим: недоступный список файлов не должен мешать
+    // заполнению анкеты — блоки просто отрисуются пустыми.
+    getArtifactsByToken(token)
+      .then((r) => setArtifacts(r.data))
+      .catch(() => undefined);
   }, [token]);
 
   const getVisibleSections = useCallback(() => {
@@ -627,6 +719,13 @@ export default function FillPage() {
           </div>
         )}
 
+        {token && (
+          <GuaranteeLetterBlock
+            token={token}
+            letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
+          />
+        )}
+
         <div className="space-y-6">
           {sectionKeys.map((sectionKey) => {
             let sectionQuestions = questions
@@ -692,7 +791,9 @@ export default function FillPage() {
             );
           })}
 
-          {token && <ArtifactsBlock token={token} />}
+          {token && (
+            <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
+          )}
         </div>
 
         {error && (

@@ -7,10 +7,14 @@ import {
   NotFoundException,
   Param,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { LinksService } from './links.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -21,6 +25,8 @@ import { SubmitAnswerDto } from '../questionnaire/dto/submit-answer.dto';
 import { ArtifactsService } from '../artifacts/artifacts.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CompaniesService } from '../companies/companies.service';
+
+const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
 @Controller('links')
 export class LinksController {
@@ -94,6 +100,34 @@ export class LinksController {
   async getArtifacts(@Param('token') token: string) {
     const link = await this.linksService.findByToken(token);
     return this.artifactsService.getByQuestionnaire(link.questionnaireId);
+  }
+
+  // Скачивание файла подрядчиком без JWT: гарантийное письмо загружает
+  // сотрудник/аудитор, а забирать его должен подрядчик по своей ссылке.
+  @Get(':token/artifacts/:artifactId/download')
+  async downloadArtifact(
+    @Param('token') token: string,
+    @Param('artifactId') artifactId: string,
+    @Res() res: Response,
+  ) {
+    const link = await this.linksService.findByToken(token);
+    const artifact = await this.artifactsService.getById(artifactId);
+
+    if (artifact.questionnaireId !== link.questionnaireId) {
+      throw new NotFoundException('Файл не найден!');
+    }
+
+    const filePath = join(UPLOAD_DIR, artifact.storedPath);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Файл не найден на диске!');
+    }
+
+    res.setHeader('Content-Type', artifact.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(artifact.fileName)}"`,
+    );
+    res.sendFile(filePath);
   }
 
   @Delete(':token/artifacts/:artifactId')
