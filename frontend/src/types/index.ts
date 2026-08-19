@@ -8,6 +8,9 @@ export type Status =
   | 'DECLINED'
   | 'REVISION'
 
+// Статус подрядчика, выставляется вручную (EMPLOYEE / AUDITOR)
+export type ContractorStatus = 'GREEN' | 'YELLOW' | 'RED' | 'NONE';
+
 export type QuestionType =
   | 'text'
   | 'yesno'
@@ -56,6 +59,7 @@ export interface Company {
   contactName: string;
   contactEmails: string[];
   createdAt?: string;
+  status: ContractorStatus;
 }
 
 export interface CompanyRef {

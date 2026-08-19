@@ -1,5 +1,10 @@
 import api from './client';
-import type { Company, CompanyQuestionnaire, ContractorEmployee } from '../types';
+import type {
+  Company,
+  CompanyQuestionnaire,
+  ContractorEmployee,
+  ContractorStatus,
+} from '../types';
 
 export const getCompanies = () => api.get<Company[]>('/companies');
 
@@ -40,3 +45,7 @@ export const addCompanyEmployee = (
 // EMPLOYEE: удалить сотрудника компании
 export const deleteCompanyEmployee = (employeeId: string) =>
   api.delete(`/companies/employees/${employeeId}`);
+
+// EMPLOYEE / AUDITOR: сменить статус подрядчика
+export const updateCompanyStatus = (id: string, status: ContractorStatus) =>
+  api.patch<Company>(`/companies/${id}/status`, { status });

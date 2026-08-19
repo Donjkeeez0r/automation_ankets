@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CreateContactorEmployeeDto } from './dto/create-contactor-employee.dto';
+import { ContactorStatus } from '../generated/prisma';
 
 @Injectable()
 export class CompaniesService {
@@ -121,5 +122,20 @@ export class CompaniesService {
     });
 
     return { message: 'Сотрудник удален!' };
+  }
+
+  async updateStatus(id: string, status: ContactorStatus) {
+    const company = await this.prismaService.company.findUnique({
+      where: { id },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Компания не найдена!');
+    }
+
+    return this.prismaService.company.update({
+      where: { id },
+      data: { status },
+    });
   }
 }

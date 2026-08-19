@@ -24,6 +24,13 @@ enum Status {
   FAILED
 }
 
+enum ContactorStatus {
+  GREEN
+  YELLOW
+  RED
+  NONE
+}
+
 model User {
   id                        String            @id @default(uuid())
   email                     String            @unique
@@ -43,6 +50,7 @@ model Company {
   contactName           String
   contactEmails         String[]
   createdAt             DateTime              @default(now())
+  status                ContactorStatus       @default(NONE)
 
   questionnaires        Questionnaire[]
 

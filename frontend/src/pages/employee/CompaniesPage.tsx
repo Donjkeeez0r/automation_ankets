@@ -8,10 +8,15 @@ import {
   getCompanyEmployees,
   addCompanyEmployee,
   deleteCompanyEmployee,
+  updateCompanyStatus,
 } from '../../api/companies';
 import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
+import ContractorStatusBadge, {
+  CONTRACTOR_STATUS_CONFIG,
+  CONTRACTOR_STATUS_ORDER,
+} from '../../components/ContractorStatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyForm';
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
@@ -25,6 +30,7 @@ import type {
   CompanyQuestionnaire,
   CompanyLink,
   ContractorEmployee,
+  ContractorStatus,
 } from '../../types';
 
 type CompanySort = 'name' | 'createdAt';
@@ -297,6 +303,22 @@ function CompanyCard({
   // id анкеты, для которой открыто окно настройки обязательности вопросов
   const [overridesFor, setOverridesFor] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [statusError, setStatusError] = useState('');
+
+  const handleStatusChange = async (status: ContractorStatus) => {
+    if (status === company.status) return;
+    setStatusSaving(true);
+    setStatusError('');
+    try {
+      const { data } = await updateCompanyStatus(company.id, status);
+      onUpdated(data);
+    } catch (err) {
+      setStatusError(errorMessage(err, 'Не удалось изменить статус'));
+    } finally {
+      setStatusSaving(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -387,6 +409,27 @@ function CompanyCard({
             </>
           )}
         </div>
+      </div>
+
+      {/* Статус подрядчика: виден и в свёрнутой, и в развёрнутой карточке.
+          Менять могут и EMPLOYEE, и AUDITOR. */}
+      <div className="mt-3 ml-5 flex items-center gap-2 flex-wrap">
+        <ContractorStatusBadge status={company.status} />
+        <select
+          value={company.status}
+          disabled={statusSaving}
+          onChange={(e) => void handleStatusChange(e.target.value as ContractorStatus)}
+          aria-label={`Статус подрядчика «${company.name}»`}
+          className="px-2 py-1 border border-gray-300 rounded-lg text-xs bg-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {CONTRACTOR_STATUS_ORDER.map((s) => (
+            <option key={s} value={s}>
+              {CONTRACTOR_STATUS_CONFIG[s].label}
+            </option>
+          ))}
+        </select>
+        {statusSaving && <span className="text-xs text-gray-400">Сохранение...</span>}
+        {statusError && <span className="text-xs text-red-600">{statusError}</span>}
       </div>
 
       {error && <div className="mt-3 text-xs text-red-600">{error}</div>}
