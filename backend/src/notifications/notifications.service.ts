@@ -10,7 +10,7 @@ export class NotificationsService {
     this.transporter = nodemailer.createTransport({
       host: this.configService.getOrThrow<string>('SMTP_HOST'),
       port: Number(this.configService.getOrThrow<string>('SMTP_PORT')),
-      secure: false,
+      secure: true,
       auth: {
         user: this.configService.getOrThrow<string>('SMTP_USER'),
         pass: this.configService.getOrThrow<string>('SMTP_PASSWORD'),
