@@ -405,6 +405,51 @@ export class QuestionnaireService {
     }
   }
 
+  @Cron(CronExpression.EVERY_DAY_AT_9AM)
+  async checkFillDeadline() {
+    const now = new Date();
+
+    const overdueQuestionnaires =
+      await this.prismaService.questionnaire.findMany({
+        where: {
+          status: 'DRAFT',
+          fillDeadlineAt: { lte: now },
+          fillDeadlineNotifiedAt: null,
+        },
+        include: {
+          company: true,
+          employee: true,
+        },
+      });
+
+    if (overdueQuestionnaires.length === 0) {
+      return;
+    }
+
+    for (const questionnaire of overdueQuestionnaires) {
+      try {
+        await this.notificationsService.sendMail(
+          questionnaire.employee.email,
+          'Подрядчик не заполнил анкету в срок',
+          `
+            <p>Компания «${questionnaire.company.name}» не заполнила анкету информационной безопасности в установленный срок (${questionnaire.fillDeadlineAt?.toLocaleDateString('ru-RU')}).</p>
+            <p>Требуется связаться с подрядчиком для уточнения ситуации.</p>
+          `,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Не удалось уведомить сотрудника ${questionnaire.employee.email} о просроченном сроке анкеты ${questionnaire.id}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+
+      await this.prismaService.questionnaire.update({
+        where: { id: questionnaire.id },
+        data: { fillDeadlineNotifiedAt: now },
+      });
+    }
+  }
+
   async setQuestionOverrides(
     questionnaireId: string,
     overrides: { questionId: string; required: boolean }[],

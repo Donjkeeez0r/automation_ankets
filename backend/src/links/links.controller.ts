@@ -25,6 +25,7 @@ import { SubmitAnswerDto } from '../questionnaire/dto/submit-answer.dto';
 import { ArtifactsService } from '../artifacts/artifacts.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CompaniesService } from '../companies/companies.service';
+import { CreateLinkDto } from './dto/create-link.dto';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
@@ -42,8 +43,8 @@ export class LinksController {
   @Post('questionnaire/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.EMPLOYEE)
-  createLink(@Param('id') questionnaireId: string) {
-    return this.linksService.createLink(questionnaireId);
+  createLink(@Param('id') questionnaireId: string, @Body() dto: CreateLinkDto) {
+    return this.linksService.createLink(questionnaireId, dto.fillDays);
   }
 
   @Post(':token/artifacts')

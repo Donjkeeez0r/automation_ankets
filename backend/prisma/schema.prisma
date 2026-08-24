@@ -79,6 +79,9 @@ model Questionnaire {
   deadlineAt          DateTime?
   deadlineNotifiedAt  DateTime?
 
+  fillDeadlineAt      DateTime?
+  fillDeadlineNotifiedAt  DateTime?
+
   companyId           String
   company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
 

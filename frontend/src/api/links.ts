@@ -6,9 +6,13 @@ import type {
   QuestionnaireLink,
 } from '../types';
 
-// EMPLOYEE: сгенерировать одноразовую ссылку для анкеты
-export const createLink = (questionnaireId: string) =>
-  api.post<QuestionnaireLink>(`/links/questionnaire/${questionnaireId}`);
+// EMPLOYEE: сгенерировать одноразовую ссылку для анкеты.
+// fillDays — срок на заполнение в днях (на бэке по умолчанию 30).
+export const createLink = (questionnaireId: string, fillDays?: number) =>
+  api.post<QuestionnaireLink>(
+    `/links/questionnaire/${questionnaireId}`,
+    fillDays === undefined ? {} : { fillDays },
+  );
 
 // Подрядчик (без авторизации): получить анкету по токену
 export const getLinkByToken = (token: string) =>

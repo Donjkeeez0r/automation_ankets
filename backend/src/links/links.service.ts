@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Status } from '../generated/prisma';
+import { DEFAULT_FILL_DAYS } from './dto/create-link.dto';
 
 // Статусы, в которых анкету ещё заполняют — во всех остальных ссылка
 // неактивна именно потому, что анкету уже отправили.
@@ -34,8 +35,18 @@ export class LinksService {
     private notificationsService: NotificationsService,
   ) {}
 
-  async createLink(questionnaireId: string) {
+  async createLink(
+    questionnaireId: string,
+    fillDays: number = DEFAULT_FILL_DAYS,
+  ) {
     const token = randomBytes(32).toString('hex');
+
+    /// Две строки возможно убрать (снизу)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + LINK_LIFETIME_DAYS);
+
+    const fillDeadlineAt = new Date();
+    fillDeadlineAt.setDate(fillDeadlineAt.getDate() + fillDays);
 
     const link = await this.prismaService.questionnaireLink.create({
       data: { token, expiresAt: linkExpiryDate(), questionnaireId },
@@ -46,13 +57,14 @@ export class LinksService {
       },
     });
 
+    await this.prismaService.questionnaire.update({
+      where: { id: questionnaireId },
+      data: { fillDeadlineAt },
+    });
+
     const fillUrl = `${process.env.FRONTEND_URL}/fill/${token}`;
 
-    // Ссылка уже создана в БД, поэтому сбой SMTP не должен ронять ответ:
-    // сотрудник в любом случае может скопировать ссылку из интерфейса.
     for (const email of link.questionnaire.company.contactEmails) {
-      // Каждый адрес обрабатываем отдельно: недействительный контакт одного
-      // получателя не должен обрывать рассылку остальным.
       try {
         await this.notificationsService.sendMail(
           email,
@@ -90,8 +102,6 @@ export class LinksService {
               },
             },
             answers: true,
-            // Индивидуальная обязательность вопросов для этой анкеты —
-            // подрядчик должен видеть актуальные правила при заполнении
             overrides: {
               select: { questionId: true, required: true },
             },
@@ -105,15 +115,11 @@ export class LinksService {
       throw new NotFoundException('Ссылка не найдена!');
     }
 
-    // Срок проверяем раньше активности: протухшая ссылка — это именно
-    // недоступность, даже если анкета к тому моменту уже была отправлена.
     if (link.expiresAt < new Date()) {
       throw new ForbiddenException('Срок действия ссылки уже истек!');
     }
 
     if (!link.isActive) {
-      // Ссылку деактивирует submit — отличаем этот случай от отзыва ссылки,
-      // чтобы подрядчик увидел экран подтверждения, а не ошибку.
       if (!FILLABLE_STATUSES.includes(link.questionnaire.status)) {
         throw new ForbiddenException({
           message: 'Анкета уже была отправлена!',
@@ -133,9 +139,6 @@ export class LinksService {
     });
   }
 
-  // Вызывается при переводе анкеты в REVISION. Срок продлеваем заново, иначе
-  // у подрядчика на дозаполнение остался бы хвост от первичных 30 дней —
-  // вплоть до уже истёкшей ссылки, если правки запросили спустя месяц.
   async reactivateByQuestionnaireId(questionnaireId: string) {
     return this.prismaService.questionnaireLink.updateMany({
       where: { questionnaireId },

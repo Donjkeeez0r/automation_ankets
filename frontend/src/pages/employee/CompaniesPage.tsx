@@ -49,6 +49,15 @@ function errorMessage(err: unknown, fallback: string): string {
 
 const fillUrl = (token: string) => `${window.location.origin}/fill/${token}`;
 
+// Срок на заполнение анкеты по умолчанию — совпадает с дефолтом бэкенда
+const DEFAULT_FILL_DAYS = 30;
+const MAX_FILL_DAYS = 365;
+
+const isFillDaysValid = (value: string) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= MAX_FILL_DAYS;
+};
+
 const isLinkLive = (link: CompanyLink) =>
   link.isActive && new Date(link.expiresAt).getTime() > Date.now();
 
@@ -302,6 +311,9 @@ function CompanyCard({
   const [error, setError] = useState('');
   // id анкеты, для которой открыто окно настройки обязательности вопросов
   const [overridesFor, setOverridesFor] = useState<string | null>(null);
+  // Анкета, для которой открыт попап выбора срока заполнения перед генерацией ОЛ
+  const [linkFor, setLinkFor] = useState<string | null>(null);
+  const [fillDays, setFillDays] = useState(String(DEFAULT_FILL_DAYS));
   const [editing, setEditing] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [statusError, setStatusError] = useState('');
@@ -353,14 +365,16 @@ function CompanyCard({
     }
   };
 
-  const handleCreateLink = async (questionnaireId: string) => {
+  const handleCreateLink = async (questionnaireId: string, fillDays: number) => {
     setBusy(true);
     setError('');
     try {
-      await createLink(questionnaireId);
+      await createLink(questionnaireId, fillDays);
       await load();
+      return true;
     } catch (err) {
       setError(errorMessage(err, 'Не удалось сгенерировать ссылку'));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -465,7 +479,10 @@ function CompanyCard({
                           Настроить обязательность вопросов
                         </button>
                         <button
-                          onClick={() => handleCreateLink(q.id)}
+                          onClick={() => {
+                            setFillDays(String(DEFAULT_FILL_DAYS));
+                            setLinkFor(q.id);
+                          }}
                           disabled={busy}
                           className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                         >
@@ -521,6 +538,72 @@ function CompanyCard({
                 setEditing(false);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {linkFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !busy && setLinkFor(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-sm bg-white rounded-xl border border-gray-200 shadow-xl p-5"
+          >
+            <h2 className="text-base font-semibold text-gray-900">
+              Отправить ОЛ
+            </h2>
+            <p className="mt-1 text-xs text-gray-500">
+              Ссылка будет отправлена на контактные адреса компании.
+            </p>
+
+            <label
+              htmlFor="fill-days"
+              className="block mt-4 text-xs font-medium text-gray-700"
+            >
+              Срок на заполнение (дней)
+            </label>
+            <input
+              id="fill-days"
+              type="number"
+              min={1}
+              max={MAX_FILL_DAYS}
+              value={fillDays}
+              autoFocus
+              onChange={(e) => setFillDays(e.target.value)}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {!isFillDaysValid(fillDays) && (
+              <div className="mt-1 text-xs text-red-600">
+                Укажите целое число от 1 до {MAX_FILL_DAYS}.
+              </div>
+            )}
+
+            {error && <div className="mt-2 text-xs text-red-600">{error}</div>}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setLinkFor(null)}
+                disabled={busy}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  if (await handleCreateLink(linkFor, Number(fillDays))) {
+                    setLinkFor(null);
+                  }
+                }}
+                disabled={busy || !isFillDaysValid(fillDays)}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                {busy ? 'Отправка...' : 'Отправить'}
+              </button>
+            </div>
           </div>
         </div>
       )}
