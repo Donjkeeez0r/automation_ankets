@@ -201,14 +201,23 @@ export class QuestionnaireService {
     try {
       const auditorEmails = await this.usersService.getAuditorEmails();
       for (const email of auditorEmails) {
-        await this.notificationsService.sendMail(
-          email,
-          'Новая анкета на проверку',
-          `
+        // Каждое письмо отправляем изолированно: недействительный адрес одного
+        // аудитора не должен лишать уведомления остальных.
+        try {
+          await this.notificationsService.sendMail(
+            email,
+            'Новая анкета на проверку',
+            `
           <p>Поступила новая анкета от компании «${questionnaire.company.name}» для проверки.</p>
           <p>Проверьте её в системе анкетирования.</p>
         `,
-        );
+          );
+        } catch (err) {
+          this.logger.error(
+            `Не удалось уведомить аудитора ${email} об анкете ${questionnaireId}`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        }
       }
     } catch (err) {
       this.logger.error(
@@ -348,7 +357,7 @@ export class QuestionnaireService {
     return { message: 'Анкета удалена!' };
   }
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkDeadlines() {
     const now = new Date();
 
@@ -370,14 +379,23 @@ export class QuestionnaireService {
 
     for (const questionnaire of overdueQuestionnaires) {
       for (const email of auditorEmails) {
-        await this.notificationsService.sendMail(
-          email,
-          'Просрочен дедлайн дозаполнения анкеты',
-          `
+        // Сбой на одном адресе не должен прерывать рассылку остальным
+        // аудиторам и мешать пометке анкеты как уведомлённой.
+        try {
+          await this.notificationsService.sendMail(
+            email,
+            'Просрочен дедлайн дозаполнения анкеты',
+            `
           <p>У компании «${questionnaire.company.name}» истёк срок дозаполнения анкеты (дедлайн: ${questionnaire.deadlineAt?.toLocaleDateString('ru-RU')}).</p>
           <p>Требуется проверка в системе анкетирования.</p>
           `,
-        );
+          );
+        } catch (err) {
+          this.logger.error(
+            `Не удалось уведомить аудитора ${email} о просроченном дедлайне анкеты ${questionnaire.id}`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        }
       }
 
       await this.prismaService.questionnaire.update({

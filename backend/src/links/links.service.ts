@@ -50,8 +50,10 @@ export class LinksService {
 
     // Ссылка уже создана в БД, поэтому сбой SMTP не должен ронять ответ:
     // сотрудник в любом случае может скопировать ссылку из интерфейса.
-    try {
-      for (const email of link.questionnaire.company.contactEmails) {
+    for (const email of link.questionnaire.company.contactEmails) {
+      // Каждый адрес обрабатываем отдельно: недействительный контакт одного
+      // получателя не должен обрывать рассылку остальным.
+      try {
         await this.notificationsService.sendMail(
           email,
           'Анкета информационной безопасности',
@@ -62,12 +64,12 @@ export class LinksService {
           <p>Ссылка действительна ${LINK_LIFETIME_DAYS} дней.</p>
         `,
         );
+      } catch (err) {
+        this.logger.error(
+          `Не удалось отправить ссылку на анкету ${questionnaireId} на адрес ${email}`,
+          err instanceof Error ? err.stack : String(err),
+        );
       }
-    } catch (err) {
-      this.logger.error(
-        `Не удалось отправить ссылку на анкету ${questionnaireId} подрядчику`,
-        err instanceof Error ? err.stack : String(err),
-      );
     }
 
     return link;
