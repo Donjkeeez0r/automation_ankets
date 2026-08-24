@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -43,8 +44,14 @@ export class LinksController {
   @Post('questionnaire/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.EMPLOYEE)
-  createLink(@Param('id') questionnaireId: string, @Body() dto: CreateLinkDto) {
-    return this.linksService.createLink(questionnaireId, dto.fillDays);
+  createLink(
+    @Param('id') questionnaireId: string,
+    @Body() dto?: CreateLinkDto,
+  ) {
+    // Тело запроса может отсутствовать: Express 5 не подставляет пустой объект,
+    // если body не передан или Content-Type не application/json.
+    // В этом случае срок заполнения берётся из DEFAULT_FILL_DAYS.
+    return this.linksService.createLink(questionnaireId, dto?.fillDays);
   }
 
   @Post(':token/artifacts')
@@ -70,8 +77,16 @@ export class LinksController {
   @Post(':token/answers')
   async saveAnswers(
     @Param('token') token: string,
-    @Body() dto: SubmitAnswerDto,
+    @Body() dto?: SubmitAnswerDto,
   ) {
+    // Express 5 оставляет body undefined, если тело не передано или
+    // Content-Type не application/json. Сейчас такой запрос отсекает
+    // ValidationPipe (answers обязателен), но хендлер не должен зависеть
+    // от глобальной настройки пайпов.
+    if (!dto?.answers) {
+      throw new BadRequestException('Не передан список ответов!');
+    }
+
     const link = await this.linksService.findByToken(token);
     return this.questionnaireService.saveAnswers(
       link.questionnaireId,
