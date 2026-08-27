@@ -154,6 +154,8 @@ export interface LinkQuestionnaire {
   id: string;
   status: Status;
   comment?: string | null;
+  // Крайний срок заполнения анкеты подрядчиком (проставляется при создании ссылки)
+  fillDeadlineAt?: string | null;
   company?: CompanyRef;
   answers?: Answer[];
   overrides?: QuestionOverride[];

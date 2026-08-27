@@ -407,6 +407,72 @@ function ArtifactsBlock({
   );
 }
 
+// Вводный экран с правилами заполнения: те же пункты, что и в письме со
+// ссылкой (links.service.ts). Показывается один раз за визит — состояние
+// живёт только в памяти вкладки, при перезагрузке экран появится снова.
+function FillIntro({
+  companyName,
+  fillDeadlineAt,
+  onStart,
+}: {
+  companyName?: string;
+  fillDeadlineAt?: string | null;
+  onStart: () => void;
+}) {
+  const deadline = fillDeadlineAt ? new Date(fillDeadlineAt) : null;
+  const deadlineText =
+    deadline && !Number.isNaN(deadline.getTime())
+      ? deadline.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : null;
+
+  const rules = [
+    'Все ответы должны быть развёрнутыми и содержательными — формальные отписки не принимаются и будут возвращены на доработку.',
+    'Вопросы, отмеченные звёздочкой (*), обязательны для ответа.',
+    'При необходимости прикладывайте подтверждающие документы (файлы) — это ускорит проверку.',
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-xl mx-auto">
+        <div className="mb-6">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+            Анкетирование ИБ
+          </div>
+          <h1 className="text-xl font-bold text-gray-900">Прежде чем начать заполнение</h1>
+          {companyName && (
+            <p className="text-sm text-gray-500 mt-0.5">Компания: {companyName}</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <ul className="space-y-3">
+            {rules.map((rule) => (
+              <li key={rule} className="flex gap-3 text-sm text-gray-700">
+                <span className="text-blue-600 mt-0.5">•</span>
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+
+          {deadlineText && (
+            <div className="mt-5 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+              <span className="font-medium">Заполнить нужно до:</span> {deadlineText}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onStart}
+            className="mt-6 w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Начать заполнение
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Экран «кто заполняет анкету»: показывается один раз, пока в анкете не
 // проставлен filledByEmployee. Список сотрудников ведёт сотрудник КОМПАНИИ.
 // Если список пуст, выбирать не из чего — сообщаем родителю через onEmpty,
@@ -517,6 +583,9 @@ export default function FillPage() {
   const [error, setError] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Вводный экран с правилами: показывается один раз за визит, перед выбором
+  // сотрудника и формой. Состояние не сохраняется между открытиями ссылки.
+  const [introDone, setIntroDone] = useState(false);
   // null — сотрудник ещё не выбран, показываем экран выбора вместо формы
   const [filledBy, setFilledBy] = useState<ContractorEmployee | null>(null);
   // у компании нет сотрудников — выбирать не из чего, пускаем к форме анонимно
@@ -668,6 +737,16 @@ export default function FillPage() {
   }
 
   if (!link) return null;
+
+  if (!introDone) {
+    return (
+      <FillIntro
+        companyName={link.questionnaire.company?.name}
+        fillDeadlineAt={link.questionnaire.fillDeadlineAt}
+        onStart={() => setIntroDone(true)}
+      />
+    );
+  }
 
   // Пока подрядчик не указал, кто заполняет анкету, форму не показываем.
   if (!filledBy && !noEmployees && token) {
