@@ -60,3 +60,23 @@ export const setQuestionOverrides = (
 // AUDITOR: удалить анкету со всей историей
 export const deleteQuestionnaire = (id: string) =>
   api.delete(`/questionnaire/${id}`);
+
+// EMPLOYEE / AUDITOR: PDF с рекомендациями. Эндпоинт под JWT, поэтому
+// простой <a href> не подойдёт — тянем файл через axios как blob.
+export const downloadRecommendationsPdf = (id: string) =>
+  api.get<Blob>(`/questionnaire/${id}/recommendations/pdf`, {
+    responseType: 'blob',
+  });
+
+// Имя файла из Content-Disposition: сначала RFC 5987 (filename*=UTF-8''...),
+// затем обычный filename. Возвращает null, если заголовка нет — вызывающий
+// код подставит своё имя.
+export const parseContentDispositionFileName = (
+  disposition?: string,
+): string | null => {
+  if (!disposition) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+  if (utf8) return decodeURIComponent(utf8[1].trim());
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  return plain ? plain[1].trim() : null;
+};

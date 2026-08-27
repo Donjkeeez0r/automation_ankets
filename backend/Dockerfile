@@ -25,6 +25,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/src/generated ./src/generated
+COPY --from=build /app/assets ./assets
 
 EXPOSE 3000
 

@@ -16,6 +16,12 @@ import { LinksService } from '../links/links.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import PDFDocument from 'pdfkit';
+import { Response } from 'express';
+import { join } from 'path';
+
+const FONT_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans.ttf');
+const FONT_BOLD_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans-Bold.ttf');
 
 @Injectable()
 export class QuestionnaireService {
@@ -493,5 +499,54 @@ export class QuestionnaireService {
       where: { id: questionnaireId },
       data: { filledByEmployeeId: employeeId },
     });
+  }
+
+  async generateRecommendationsPdf(questionnaireId: string, res: Response) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+      include: { company: true },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    const recommendations = await this.getReccomendation(questionnaireId);
+
+    const doc = new PDFDocument({ margin: 50 });
+    doc.registerFont('main', FONT_PATH);
+    doc.registerFont('main-bold', FONT_BOLD_PATH);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="recommendations-${questionnaireId}.pdf"`,
+    );
+
+    doc.pipe(res);
+
+    doc
+      .font('main-bold')
+      .fontSize(16)
+      .text('Рекомендации по устранению несоответствий');
+    doc.moveDown();
+    doc
+      .font('main')
+      .fontSize(12)
+      .text(`Компания: ${questionnaire.company.name}`);
+    doc.text(`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`);
+    doc.moveDown();
+
+    if (recommendations.length === 0) {
+      doc.text('Рекомендации отсутствуют — все требования выполнены.');
+    } else {
+      for (const rec of recommendations) {
+        doc.font('main-bold').fontSize(11).fillColor('#555').text(rec.category);
+        doc.font('main').fontSize(12).fillColor('#000').text(rec.text);
+        doc.moveDown(0.5);
+      }
+    }
+
+    doc.end();
   }
 }

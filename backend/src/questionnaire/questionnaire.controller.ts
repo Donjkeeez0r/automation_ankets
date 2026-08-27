@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   UseGuards,
+  Res,
 } from '@nestjs/common';
 import { QuestionnaireService } from './questionnaire.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -19,6 +20,7 @@ import { UpdateStatusDto } from './dto/update-status.dto';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { SetOverridesDto } from './dto/question-override.dto';
+import type { Response } from 'express';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('questionnaire')
@@ -128,5 +130,17 @@ export class QuestionnaireController {
   @Roles(Role.EMPLOYEE)
   getOverrides(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getQuestionOverrides(questionnaireId);
+  }
+
+  @Get(':id/recommendations/pdf')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  async downloadRecommendationsPdf(
+    @Param('id') questionnaireId: string,
+    @Res() res: Response,
+  ) {
+    return this.questionnaireService.generateRecommendationsPdf(
+      questionnaireId,
+      res,
+    );
   }
 }

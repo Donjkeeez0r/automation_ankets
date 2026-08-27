@@ -6,7 +6,10 @@ import {
   getRecommendations,
   updateStatus,
   deleteQuestionnaire,
+  downloadRecommendationsPdf,
+  parseContentDispositionFileName,
 } from '../../api/questionnaire';
+import { saveBlobAs } from '../../api/artifacts';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AnswersView from '../../components/AnswersView';
@@ -48,9 +51,37 @@ export default function QuestionnaireReviewPage() {
   const [updating, setUpdating] = useState(false);
   const [actionError, setActionError] = useState('');
 
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  // Эндпоинт PDF требует JWT, поэтому файл тянем через axios как blob
+  // и отдаём браузеру временным object URL — как и остальные скачивания.
+  const handleDownloadPdf = async () => {
+    if (!id) return;
+    setDownloadingPdf(true);
+    setPdfError('');
+    try {
+      const { data, headers } = await downloadRecommendationsPdf(id);
+      const headerName = parseContentDispositionFileName(
+        headers['content-disposition'] as string | undefined,
+      );
+      // Сервер отдаёт ASCII-имя вида recommendations-<uuid>.pdf — имя
+      // с названием компании читается понятнее, поэтому оно в приоритете.
+      const company = questionnaire?.company?.name?.replace(/[\\/:*?"<>|]/g, '-');
+      const fileName = company
+        ? `Рекомендации-${company}.pdf`
+        : (headerName ?? 'recommendations.pdf');
+      saveBlobAs(data, fileName);
+    } catch {
+      setPdfError('Не удалось скачать PDF с рекомендациями');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const loadQuestionnaire = () => {
     if (!id) return;
@@ -256,7 +287,22 @@ export default function QuestionnaireReviewPage() {
         (recommendationsError ? (
           <div className="text-sm text-red-600">{recommendationsError}</div>
         ) : (
-          <RecommendationsList recommendations={recommendations} />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Рекомендации ({recommendations.length})
+              </h2>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
+              </button>
+            </div>
+            {pdfError && <div className="text-sm text-red-600">{pdfError}</div>}
+            <RecommendationsList recommendations={recommendations} />
+          </div>
         ))}
 
       {tab === 'files' && <ArtifactsView questionnaireId={questionnaire.id} />}
