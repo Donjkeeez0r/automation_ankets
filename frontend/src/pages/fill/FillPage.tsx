@@ -50,6 +50,9 @@ const YESNO_OPTIONS = ['Да', 'Нет'];
 const YESNO_NA_OPTIONS = ['Да', 'Нет', 'Не предполагается'];
 const YESNO_PARTIAL_OPTIONS = ['Реализовано в полной мере', 'Реализовано частично', 'Не реализовано'];
 const YESNO_ARCH_OPTIONS = ['Да', 'Нет', 'Не требуется по архитектуре Организации'];
+// Отдельный тип для вопросов об удалённом доступе (1.2.8, 1.2.10): отличается
+// только текстом третьего варианта.
+const YESNO_REMOTE_ACCESS_OPTIONS = ['Да', 'Нет', 'Удалённый доступ отсутствует в сети'];
 const YESNO_NOWORK_OPTIONS = ['Да', 'Нет', 'Не предполагается данный вид работ/услуг'];
 
 const SOC_TYPE_OPTIONS = ['Внутренний (собственный)', 'Договор с внешним'];
@@ -143,6 +146,8 @@ function AnswerInput({
       ? YESNO_PARTIAL_OPTIONS
       : question.type === 'yesno_arch'
       ? YESNO_ARCH_OPTIONS
+      : question.type === 'yesno_remote_access'
+      ? YESNO_REMOTE_ACCESS_OPTIONS
       : question.type === 'yesno_nowork'
       ? YESNO_NOWORK_OPTIONS
       : null;

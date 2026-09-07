@@ -2,6 +2,17 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RECOMMENDATIONS } from './recommendations';
 
+// Варианты ответа «мера неприменима» для вопросов 1.2.8 / 1.2.10. Раньше они
+// имели тип yesno_arch и сохранялись как «Не требуется по архитектуре
+// Организации», сейчас — тип yesno_remote_access с текстом «Удалённый доступ
+// отсутствует в сети». Сравнение идёт по значению ответа, а не по типу вопроса,
+// поэтому оба варианта считаются эквивалентными: в базе остались ответы,
+// сохранённые со старым текстом.
+const ARCH_NOT_REQUIRED_VALUES = [
+  'Удалённый доступ отсутствует в сети',
+  'Не требуется по архитектуре Организации',
+];
+
 @Injectable()
 export class ScoringService {
   constructor(private prismaService: PrismaService) {}
@@ -58,7 +69,7 @@ export class ScoringService {
       answers['1.1.5'] === 'Да' &&
       answers['1.2.7'] === 'Да' &&
       (answers['1.2.8'] === 'Да' ||
-        answers['1.2.8'] === 'Не требуется по архитектуре Организации')
+        ARCH_NOT_REQUIRED_VALUES.includes(answers['1.2.8']))
         ? 1
         : 0;
 

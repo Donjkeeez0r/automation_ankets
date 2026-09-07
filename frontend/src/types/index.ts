@@ -17,6 +17,7 @@ export type QuestionType =
   | 'yesno_na'
   | 'yesno_partial'
   | 'yesno_arch'
+  | 'yesno_remote_access'
   | 'yesno_nowork';
 
 // Пользователь из JWT (ADMIN / EMPLOYEE / AUDITOR). Подрядчик аккаунта не имеет.
