@@ -18,6 +18,8 @@ import ContractorStatusBadge, {
   CONTRACTOR_STATUS_ORDER,
 } from '../../components/ContractorStatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import Tooltip from '../../components/Tooltip';
+import { copyToClipboard } from '../../lib/clipboard';
 import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyForm';
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
 import SearchInput from '../../components/SearchInput';
@@ -63,13 +65,15 @@ const isLinkLive = (link: CompanyLink) =>
 
 function LinkRow({ link }: { link: CompanyLink }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const url = fillUrl(link.token);
   const live = isLinkLive(link);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const ok = await copyToClipboard(url);
+    setCopied(ok);
+    setCopyFailed(!ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -84,12 +88,14 @@ function LinkRow({ link }: { link: CompanyLink }) {
       <code className="flex-1 px-2 py-1 bg-gray-100 rounded text-xs font-mono text-gray-800 break-all">
         {url}
       </code>
-      <button
-        onClick={copy}
-        className="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors shrink-0"
-      >
-        {copied ? 'Скопировано ✓' : 'Копировать'}
-      </button>
+      <Tooltip text={copyFailed ? 'Не удалось скопировать — выделите ссылку и нажмите Ctrl+C' : 'Скопировать ссылку в буфер обмена'}>
+        <button
+          onClick={copy}
+          className="px-2.5 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors shrink-0"
+        >
+          {copied ? 'Скопировано ✓' : 'Копировать'}
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -399,20 +405,24 @@ function CompanyCard({
         </button>
         <div className="shrink-0 flex items-center gap-2">
           {isAuditor ? (
-            <button
-              onClick={() => onRequestDelete(company)}
-              className="px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
-            >
-              Удалить
-            </button>
+            <Tooltip text="Компания и все её анкеты будут удалены безвозвратно">
+              <button
+                onClick={() => onRequestDelete(company)}
+                className="px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+              >
+                Удалить
+              </button>
+            </Tooltip>
           ) : (
             <>
-              <button
-                onClick={() => setEditing(true)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Редактировать
-              </button>
+              <Tooltip text="Изменить данные компании">
+                <button
+                  onClick={() => setEditing(true)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Редактировать
+                </button>
+              </Tooltip>
               <button
                 onClick={handleCreateQuestionnaire}
                 disabled={busy}
@@ -471,23 +481,27 @@ function CompanyCard({
                     </div>
                     {!isAuditor && (
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setOverridesFor(q.id)}
-                          disabled={busy}
-                          className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                        >
-                          Настроить обязательность вопросов
-                        </button>
-                        <button
-                          onClick={() => {
-                            setFillDays(String(DEFAULT_FILL_DAYS));
-                            setLinkFor(q.id);
-                          }}
-                          disabled={busy}
-                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                        >
-                          Отправить ОЛ
-                        </button>
+                        <Tooltip text="Изменить, какие вопросы обязательны именно для этой анкеты">
+                          <button
+                            onClick={() => setOverridesFor(q.id)}
+                            disabled={busy}
+                            className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                          >
+                            Настроить обязательность вопросов
+                          </button>
+                        </Tooltip>
+                        <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
+                          <button
+                            onClick={() => {
+                              setFillDays(String(DEFAULT_FILL_DAYS));
+                              setLinkFor(q.id);
+                            }}
+                            disabled={busy}
+                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                          >
+                            Отправить ОЛ
+                          </button>
+                        </Tooltip>
                       </div>
                     )}
                   </div>

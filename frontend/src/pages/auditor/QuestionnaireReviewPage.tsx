@@ -16,6 +16,7 @@ import AnswersView from '../../components/AnswersView';
 import ScoringTiles from '../../components/ScoringTiles';
 import RecommendationsList from '../../components/RecommendationsList';
 import ArtifactsView from '../../components/ArtifactsView';
+import Tooltip from '../../components/Tooltip';
 import type {
   Questionnaire,
   ScoringResult,
@@ -196,12 +197,17 @@ export default function QuestionnaireReviewPage() {
             </div>
           )}
         </div>
-        <button
-          onClick={() => setConfirmDelete(true)}
-          className="shrink-0 px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+        <Tooltip
+          className="shrink-0"
+          text="Анкета будет удалена безвозвратно вместе со всеми ответами и файлами"
         >
-          Удалить
-        </button>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+          >
+            Удалить
+          </button>
+        </Tooltip>
       </div>
 
       {questionnaire.comment && (
@@ -230,27 +236,33 @@ export default function QuestionnaireReviewPage() {
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleStatusChange('APPROVED')}
-              disabled={updating}
-              className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-            >
-              Согласовать
-            </button>
-            <button
-              onClick={() => handleStatusChange('DECLINED')}
-              disabled={updating}
-              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-            >
-              Отклонить
-            </button>
-            <button
-              onClick={() => handleStatusChange('REVISION')}
-              disabled={updating}
-              className="px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 transition-colors"
-            >
-              На дозаполнение
-            </button>
+            <Tooltip text="Анкета соответствует требованиям, подрядчик допускается к работе">
+              <button
+                onClick={() => handleStatusChange('APPROVED')}
+                disabled={updating}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                Согласовать
+              </button>
+            </Tooltip>
+            <Tooltip text="Подрядчик не соответствует требованиям, работа с ним не продолжается">
+              <button
+                onClick={() => handleStatusChange('DECLINED')}
+                disabled={updating}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                Отклонить
+              </button>
+            </Tooltip>
+            <Tooltip text="Анкета возвращается подрядчику с комментарием для исправления замечаний">
+              <button
+                onClick={() => handleStatusChange('REVISION')}
+                disabled={updating}
+                className="px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 transition-colors"
+              >
+                На дозаполнение
+              </button>
+            </Tooltip>
           </div>
           {actionError && <div className="mt-3 text-sm text-red-600">{actionError}</div>}
         </div>
@@ -292,13 +304,15 @@ export default function QuestionnaireReviewPage() {
               <h2 className="text-sm font-semibold text-gray-700">
                 Рекомендации ({recommendations.length})
               </h2>
-              <button
-                onClick={handleDownloadPdf}
-                disabled={downloadingPdf}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
-              </button>
+              <Tooltip text="Скачать список рекомендаций в формате PDF">
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
+                </button>
+              </Tooltip>
             </div>
             {pdfError && <div className="text-sm text-red-600">{pdfError}</div>}
             <RecommendationsList recommendations={recommendations} />

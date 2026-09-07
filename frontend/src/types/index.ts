@@ -86,6 +86,9 @@ export interface Question {
   type: QuestionType;
   order: number;
   required: boolean;
+  groupLabel?: string | null;
+  // Подпись поля комментария; null — комментарий по вопросу не запрашивается
+  additionalLabel?: string | null;
 }
 
 // Индивидуальное переопределение обязательности вопроса для конкретной анкеты

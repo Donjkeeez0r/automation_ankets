@@ -149,6 +149,8 @@ model Question {
   type                String
   order               Int
   required            Boolean         @default(true)
+  groupLabel          String?
+  additionalLabel     String?
 
   answers             Answer[]
 

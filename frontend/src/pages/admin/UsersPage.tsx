@@ -12,6 +12,7 @@ import Pagination from '../../components/Pagination';
 import { ROLE_LABELS } from '../../lib/roles';
 import { usePagination } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
+import { copyToClipboard } from '../../lib/clipboard';
 import type { ManagedUser, Role } from '../../types';
 
 const ROLES: Role[] = ['ADMIN', 'EMPLOYEE', 'AUDITOR'];
@@ -35,10 +36,12 @@ function PasswordModal({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const copy = async () => {
-    await navigator.clipboard.writeText(password);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    const ok = await copyToClipboard(password);
+    setCopied(ok);
+    setCopyFailed(!ok);
+    if (ok) setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -48,7 +51,7 @@ function PasswordModal({
         <p className="text-sm text-gray-500 mb-4">
           Передайте этот пароль сотруднику. Он показывается один раз и больше нигде не хранится.
         </p>
-        <div className="flex items-center gap-2 mb-5">
+        <div className="flex items-center gap-2 mb-2">
           <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono text-gray-900 break-all">
             {password}
           </code>
@@ -58,6 +61,9 @@ function PasswordModal({
           >
             {copied ? 'Скопировано ✓' : 'Копировать'}
           </button>
+        </div>
+        <div className="mb-5 h-4 text-xs text-red-600">
+          {copyFailed && 'Не удалось скопировать — выделите текст и нажмите Ctrl+C.'}
         </div>
         <div className="flex justify-end">
           <button

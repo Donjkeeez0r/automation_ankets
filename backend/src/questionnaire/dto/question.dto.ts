@@ -20,6 +20,14 @@ export class CreateQuestionDto {
   @IsBoolean()
   @IsOptional()
   required?: boolean;
+
+  @IsString()
+  @IsOptional()
+  groupLabel?: string;
+
+  @IsString()
+  @IsOptional()
+  additionalLabel?: string;
 }
 
 export class UpdateQuestionDto {
@@ -43,4 +51,12 @@ export class UpdateQuestionDto {
   @IsBoolean()
   @IsOptional()
   required?: boolean;
+
+  @IsString()
+  @IsOptional()
+  groupLabel?: string;
+
+  @IsString()
+  @IsOptional()
+  additionalLabel?: string;
 }

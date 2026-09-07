@@ -17,6 +17,7 @@ import {
   saveBlobAs,
   formatFileSize,
 } from '../../api/artifacts';
+import Tooltip from '../../components/Tooltip';
 import type {
   Question,
   Answer,
@@ -57,43 +58,6 @@ const YESNO_NOWORK_OPTIONS = ['Да', 'Нет', 'Не предполагаетс
 
 const SOC_TYPE_OPTIONS = ['Внутренний (собственный)', 'Договор с внешним'];
 
-const ADDITIONAL_VALUE_PLACEHOLDERS: Record<string, string> = {
-  '1.1.5': 'Укажите наименование и реквизиты документа',
-  '1.1.6': 'Укажите виды лицензируемых работ',
-  '1.1.7': 'Укажите виды лицензируемых работ',
-  '1.2.1': 'Укажите реквизиты отчета по результатам последнего внешнего аудита ИБ',
-  '1.2.2': 'Укажите наименование и реквизиты документа',
-  '1.2.3': 'Укажите наименование и реквизиты документа',
-  '1.2.4': 'Укажите наименование и реквизиты документа',
-  '1.2.5': 'Укажите наименование и реквизиты документа',
-  '1.2.6': 'Укажите способ организации SOC',
-  '1.2.7': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.8': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.9': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.10': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.11': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.12': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.13': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.14': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.15': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.16': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.2.17': 'Укажите используемые СрЗИ, комментарии к ним',
-  '1.3.2': 'Введите ответ...',
-  '1.3.3': 'Введите ответ...',
-  '1.3.4': 'Введите ответ...',
-  '1.3.5': 'Введите ответ...',
-  '1.4.2': 'Введите ответ...',
-  '1.4.3': 'Введите ответ...',
-  '1.4.4': 'Введите ответ...',
-  '1.4.5': 'Введите ответ...',
-  '1.4.6': 'Введите ответ...',
-};
-
-const ADDITIONAL_VALUE_SECTIONS: Record<string, string> = {
-  remote_access: 'Опишите реализованную меру...',
-  software_dev: 'Опишите реализованную меру...',
-};
-
 // Бэкенд отвечает 400 с { message, missingCodes: ['1.2.1', ...] }, если
 // не заполнены обязательные вопросы.
 function missingCodesFromError(err: unknown): string[] | null {
@@ -112,6 +76,19 @@ function isAlreadySubmittedError(err: unknown): boolean {
     ?.data;
   if (data?.reason === 'ALREADY_SUBMITTED') return true;
   return typeof data?.message === 'string' && data.message.includes('уже была отправлена');
+}
+
+// Подзаголовок группы вопросов: основной текст и необязательное пояснение,
+// вынесенное в отдельную строку мелким шрифтом (в исходном файле — текст в скобках).
+function splitGroupLabel(groupLabel: string): { title: string; note?: string } {
+  const [firstLine, ...restLines] = groupLabel.split('\n');
+  const rest = restLines.join(' ').trim();
+  if (rest) return { title: firstLine.trim(), note: rest };
+
+  const match = firstLine.match(/^(.*?)\s*(\([^()]*(?:\([^()]*\)[^()]*)*\))$/);
+  if (match && match[1].trim()) return { title: match[1].trim(), note: match[2] };
+
+  return { title: firstLine.trim() };
 }
 
 function triggersAdditionalValue(question: Question, value: string): boolean {
@@ -165,10 +142,23 @@ function AnswerInput({
   }
 
   if (options) {
-    const additionalPlaceholder =
-      ADDITIONAL_VALUE_PLACEHOLDERS[question.code] ?? ADDITIONAL_VALUE_SECTIONS[question.section];
+    // Подпись поля комментария задаётся в самом вопросе; её отсутствие означает,
+    // что комментарий по этому вопросу не запрашивается (и не требуется бэкендом).
+    const additionalPlaceholder = question.additionalLabel;
     const showAdditional = triggersAdditionalValue(question, value);
     const isSocType = question.code === '1.2.6' && value === 'Да';
+    // Бэкенд при отправке требует непустой комментарий для любого ответа «Да»
+    // и возвращает код вопроса в missingCodes — помечаем поле звёздочкой.
+    const additionalRequired =
+      value === 'Да' && (isSocType || (!!additionalPlaceholder && showAdditional));
+    const additionalRequiredMark = additionalRequired ? (
+      <p className="mt-2 text-xs text-gray-500">
+        <span className="text-red-600" aria-hidden="true">
+          *
+        </span>{' '}
+        Обязательно к заполнению
+      </p>
+    ) : null;
     return (
       <div>
         <div className="flex flex-wrap gap-2">
@@ -188,32 +178,41 @@ function AnswerInput({
           ))}
         </div>
         {isSocType ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {SOC_TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => onAdditionalChange(opt)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  additionalValue === opt
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
+          <>
+            {additionalRequiredMark}
+            <div className={`${additionalRequiredMark ? 'mt-1' : 'mt-2'} flex flex-wrap gap-2`}>
+              {SOC_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => onAdditionalChange(opt)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    additionalValue === opt
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
           additionalPlaceholder &&
           showAdditional && (
-            <textarea
-              value={additionalValue}
-              onChange={(e) => onAdditionalChange(e.target.value)}
-              rows={2}
-              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder={additionalPlaceholder}
-            />
+            <>
+              {additionalRequiredMark}
+              <textarea
+                value={additionalValue}
+                onChange={(e) => onAdditionalChange(e.target.value)}
+                rows={2}
+                aria-required={additionalRequired}
+                className={`${
+                  additionalRequiredMark ? 'mt-1' : 'mt-2'
+                } w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none`}
+                placeholder={additionalPlaceholder}
+              />
+            </>
           )
         )}
       </div>
@@ -843,33 +842,45 @@ export default function FillPage() {
                   </h2>
                 </div>
                 <div className="divide-y divide-gray-100">
-                  {sectionQuestions.map((q) => (
-                    <div
-                      key={q.id}
-                      className={`px-6 py-4 ${
-                        (q.section === 'gis' || q.section === 'pdn') && q.order > 1
-                          ? 'pl-10 bg-gray-50/50'
-                          : ''
-                      }`}
-                    >
-                      <p className="text-sm text-gray-800 mb-3">
-                        <span className="font-medium text-gray-400 mr-2">{q.code}</span>
-                        {q.text}
-                        {isRequired(q) && (
-                          <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
-                            *
-                          </span>
+                  {sectionQuestions.map((q) => {
+                    const group = q.groupLabel ? splitGroupLabel(q.groupLabel) : null;
+
+                    return (
+                      <div
+                        key={q.id}
+                        className={`px-6 py-4 ${
+                          (q.section === 'gis' || q.section === 'pdn') && q.order > 1
+                            ? 'pl-10 bg-gray-50/50'
+                            : ''
+                        }`}
+                      >
+                        {group && (
+                          <div className="mt-2 mb-4">
+                            <p className="text-base font-semibold text-gray-900">{group.title}</p>
+                            {group.note && (
+                              <p className="mt-1 text-xs text-gray-500">{group.note}</p>
+                            )}
+                          </div>
                         )}
-                      </p>
-                      <AnswerInput
-                        question={q}
-                        value={answers[q.id] ?? ''}
-                        additionalValue={additionalValues[q.id] ?? ''}
-                        onChange={(v) => handleAnswer(q.id, v)}
-                        onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
-                      />
-                    </div>
-                  ))}
+                        <p className="text-sm text-gray-800 mb-3">
+                          <span className="font-medium text-gray-400 mr-2">{q.code}</span>
+                          {q.text}
+                          {isRequired(q) && (
+                            <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
+                              *
+                            </span>
+                          )}
+                        </p>
+                        <AnswerInput
+                          question={q}
+                          value={answers[q.id] ?? ''}
+                          additionalValue={additionalValues[q.id] ?? ''}
+                          onChange={(v) => handleAnswer(q.id, v)}
+                          onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -892,13 +903,15 @@ export default function FillPage() {
           >
             {saving ? 'Сохранение...' : saved ? 'Сохранено ✓' : 'Сохранить черновик'}
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {submitting ? 'Отправка...' : 'Отправить анкету'}
-          </button>
+          <Tooltip text="После отправки анкету нельзя будет редактировать до решения проверяющего">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? 'Отправка...' : 'Отправить анкету'}
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>

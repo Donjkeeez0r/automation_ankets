@@ -89,6 +89,19 @@ export class QuestionnaireService {
       }
     }
 
+    // Комментарий обязателен только там, где форма его действительно
+    // запрашивает: additionalLabel — это подпись поля, и её отсутствие означает,
+    // что поля на форме нет и заполнить его подрядчик бы не смог.
+    for (const a of questionnaire.answers) {
+      if (!a.question.additionalLabel) continue;
+
+      if (a.value === 'Да' && !a.additionalValue?.trim()) {
+        if (!missing.includes(a.question.code)) {
+          missing.push(a.question.code);
+        }
+      }
+    }
+
     if (missing.length > 0) {
       throw new BadRequestException({
         message: 'Не заполнены обязательные вопросы',
