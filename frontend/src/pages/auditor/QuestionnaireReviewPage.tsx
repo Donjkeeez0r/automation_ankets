@@ -254,16 +254,26 @@ export default function QuestionnaireReviewPage() {
                 Отклонить
               </button>
             </Tooltip>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-dashed border-gray-200">
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-1">
+              Промежуточное решение
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              Анкета вернётся подрядчику на исправление. Требуется комментарий.
+            </p>
             <Tooltip text="Анкета возвращается подрядчику с комментарием для исправления замечаний">
               <button
                 onClick={() => handleStatusChange('REVISION')}
                 disabled={updating}
-                className="px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-lg hover:bg-yellow-600 disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-yellow-500 text-yellow-700 bg-transparent hover:bg-yellow-50 disabled:opacity-50 transition-colors"
               >
                 На дозаполнение
               </button>
             </Tooltip>
           </div>
+
           {actionError && <div className="mt-3 text-sm text-red-600">{actionError}</div>}
         </div>
       )}
