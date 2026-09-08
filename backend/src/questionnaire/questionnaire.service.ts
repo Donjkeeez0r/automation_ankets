@@ -19,6 +19,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import PDFDocument from 'pdfkit';
 import { Response } from 'express';
 import { join } from 'path';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 const FONT_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans.ttf');
 const FONT_BOLD_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans-Bold.ttf');
@@ -34,6 +35,7 @@ export class QuestionnaireService {
     private linksService: LinksService,
     private notificationsService: NotificationsService,
     private usersService: UsersService,
+    private activityLogService: ActivityLogService,
   ) {}
 
   async validateRequiredAnswers(questionnaireId: string) {
@@ -205,6 +207,12 @@ export class QuestionnaireService {
       data: { status: 'SUBMITTED' },
     });
 
+    await this.activityLogService.log(
+      questionnaireId,
+      'SUBMITTED',
+      'Анкета отправлена подрядчиком на проверку',
+    );
+
     // Статус уже переведён в SUBMITTED, поэтому побочные эффекты ниже не должны
     // ронять ответ: иначе подрядчик увидит ошибку у успешно отправленной анкеты,
     // а повторная попытка упрётся в «Анкета уже была отправлена!».
@@ -280,6 +288,11 @@ export class QuestionnaireService {
     return this.scoringService.getRecommendations(questionnaireId);
   }
 
+  // Лента событий по анкете — от новых к старым.
+  async getActivityLog(questionnaireId: string) {
+    return this.activityLogService.getByQuestionnaire(questionnaireId);
+  }
+
   async updateStatus(
     questionnaireId: string,
     status: Status,
@@ -303,6 +316,18 @@ export class QuestionnaireService {
         deadlineNotifiedAt: status === 'REVISION' ? null : undefined,
       },
     });
+
+    const statusLabels: Record<string, string> = {
+      APPROVED: 'Анкета согласована',
+      DECLINED: 'Анкета отклонена',
+      REVISION: 'Анкета отправлена на дозаполнение',
+    };
+
+    await this.activityLogService.log(
+      questionnaireId,
+      'DECISION_MADE',
+      statusLabels[status] ?? `Статус анкеты изменён на ${status}`,
+    );
 
     if (status === 'REVISION') {
       await this.linksService.reactivateByQuestionnaireId(questionnaireId);

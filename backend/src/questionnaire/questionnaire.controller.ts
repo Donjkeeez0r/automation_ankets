@@ -88,6 +88,12 @@ export class QuestionnaireController {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }
 
+  @Get(':id/activity-log')
+  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  getActivityLog(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.getActivityLog(questionnaireId);
+  }
+
   @Patch(':id/status')
   @Roles(Role.AUDITOR)
   updateStatus(

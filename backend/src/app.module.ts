@@ -12,6 +12,7 @@ import { LinksModule } from './links/links.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ArtifactsModule } from './artifacts/artifacts.module';
+import { ActivityLogModule } from './activity-log/activity-log.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ArtifactsModule } from './artifacts/artifacts.module';
     LinksModule,
     NotificationsModule,
     ArtifactsModule,
+    ActivityLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

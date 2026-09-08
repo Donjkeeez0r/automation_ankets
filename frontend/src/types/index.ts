@@ -208,3 +208,12 @@ export interface Recommendation {
   category: string;
   text: string;
 }
+
+// Событие в истории действий по анкете
+export interface ActivityLogEntry {
+  id: string;
+  type: string;
+  description: string;
+  createdAt: string;
+  questionnaireId: string;
+}

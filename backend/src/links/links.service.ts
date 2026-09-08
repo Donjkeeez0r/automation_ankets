@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Status } from '../generated/prisma';
 import { DEFAULT_FILL_DAYS } from './dto/create-link.dto';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 // Статусы, в которых анкету ещё заполняют — во всех остальных ссылка
 // неактивна именно потому, что анкету уже отправили.
@@ -33,6 +34,7 @@ export class LinksService {
   constructor(
     private prismaService: PrismaService,
     private notificationsService: NotificationsService,
+    private activityLogService: ActivityLogService,
   ) {}
 
   async createLink(
@@ -59,6 +61,12 @@ export class LinksService {
     });
 
     const fillUrl = `${process.env.FRONTEND_URL}/fill/${token}`;
+
+    await this.activityLogService.log(
+      questionnaireId,
+      'LINK_CREATED',
+      `Создана ссылка на анкету, срок заполнения — ${fillDays} дн.`,
+    );
 
     for (const email of link.questionnaire.company.contactEmails) {
       try {

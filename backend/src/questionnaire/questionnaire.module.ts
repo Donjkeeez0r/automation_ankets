@@ -6,11 +6,13 @@ import { ScoringModule } from '../scoring/scoring.module';
 import { LinksModule } from '../links/links.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   providers: [QuestionnaireService],
   imports: [
     PrismaModule,
+    ActivityLogModule,
     ScoringModule,
     forwardRef(() => LinksModule),
     UsersModule,

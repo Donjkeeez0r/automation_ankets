@@ -6,6 +6,7 @@ import type {
   Recommendation,
   Status,
   QuestionOverride,
+  ActivityLogEntry,
 } from '../types';
 
 export const getAllQuestionnaires = () =>
@@ -31,6 +32,10 @@ export const getScoring = (id: string) =>
 
 export const getRecommendations = (id: string) =>
   api.get<Recommendation[]>(`/questionnaire/${id}/recommendations`);
+
+// EMPLOYEE / AUDITOR: история действий по анкете (от новых к старым)
+export const getActivityLog = (id: string) =>
+  api.get<ActivityLogEntry[]>(`/questionnaire/${id}/activity-log`);
 
 // AUDITOR: сменить статус анкеты (deadlineAt — ISO-строка, только для REVISION)
 export const updateStatus = (

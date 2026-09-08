@@ -16,6 +16,7 @@ import AnswersView from '../../components/AnswersView';
 import ScoringTiles from '../../components/ScoringTiles';
 import RecommendationsList from '../../components/RecommendationsList';
 import ArtifactsView from '../../components/ArtifactsView';
+import ActivityLogView from '../../components/ActivityLogView';
 import Tooltip from '../../components/Tooltip';
 import type {
   Questionnaire,
@@ -24,13 +25,14 @@ import type {
   Status,
 } from '../../types';
 
-type Tab = 'answers' | 'scoring' | 'recommendations' | 'files';
+type Tab = 'answers' | 'scoring' | 'recommendations' | 'files' | 'history';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'answers', label: 'Ответы' },
   { key: 'scoring', label: 'Скоринг' },
   { key: 'recommendations', label: 'Рекомендации' },
   { key: 'files', label: 'Файлы' },
+  { key: 'history', label: 'История' },
 ];
 
 export default function QuestionnaireReviewPage() {
@@ -330,6 +332,8 @@ export default function QuestionnaireReviewPage() {
         ))}
 
       {tab === 'files' && <ArtifactsView questionnaireId={questionnaire.id} />}
+
+      {tab === 'history' && <ActivityLogView questionnaireId={questionnaire.id} />}
 
       <ConfirmDialog
         open={confirmDelete}
