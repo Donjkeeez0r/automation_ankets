@@ -10,8 +10,8 @@ import ProfilePage from './pages/ProfilePage';
 import UsersPage from './pages/admin/UsersPage';
 import CompaniesPage from './pages/employee/CompaniesPage';
 import QuestionsPage from './pages/employee/QuestionsPage';
-import QuestionnairesListPage from './pages/auditor/QuestionnairesListPage';
-import QuestionnaireReviewPage from './pages/auditor/QuestionnaireReviewPage';
+import QuestionnairesListPage from './pages/questionnaires/QuestionnairesListPage';
+import QuestionnaireReviewPage from './pages/questionnaires/QuestionnaireReviewPage';
 import FillPage from './pages/fill/FillPage';
 
 function RootRedirect() {
@@ -41,18 +41,13 @@ export default function App() {
             <Route path="/users" element={<UsersPage />} />
           </Route>
 
-          {/* Компании: EMPLOYEE — ведение, AUDITOR — просмотр и удаление */}
-          <Route element={<Layout requiredRole={['EMPLOYEE', 'AUDITOR']} />}>
-            <Route path="/companies" element={<CompaniesPage />} />
-          </Route>
-
-          {/* EMPLOYEE — настройка вопросов анкеты */}
+          {/* EMPLOYEE — компании, вопросы анкеты и проверка анкет */}
           <Route element={<Layout requiredRole="EMPLOYEE" />}>
+            <Route path="/companies" element={<CompaniesPage />} />
+            {/* Глубокая ссылка на конкретную компанию: тот же список,
+                но нужная карточка раскрыта и подсвечена */}
+            <Route path="/companies/:companyId" element={<CompaniesPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
-          </Route>
-
-          {/* AUDITOR — проверка анкет */}
-          <Route element={<Layout requiredRole="AUDITOR" />}>
             <Route path="/questionnaires" element={<QuestionnairesListPage />} />
             <Route path="/questionnaires/:id" element={<QuestionnaireReviewPage />} />
           </Route>

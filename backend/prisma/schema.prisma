@@ -11,7 +11,6 @@ datasource db {
 enum Role {
   ADMIN
   EMPLOYEE
-  AUDITOR
 }
 
 enum Status {
@@ -22,13 +21,6 @@ enum Status {
   DECLINED
   REVISION
   FAILED
-}
-
-enum ContactorStatus {
-  GREEN
-  YELLOW
-  RED
-  NONE
 }
 
 model User {
@@ -50,7 +42,6 @@ model Company {
   contactName           String
   contactEmails         String[]
   createdAt             DateTime              @default(now())
-  status                ContactorStatus       @default(NONE)
 
   questionnaires        Questionnaire[]
 

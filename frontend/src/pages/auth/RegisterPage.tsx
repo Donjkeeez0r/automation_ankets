@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as apiRegister } from '../../api/auth';
+import { ROLE_LABELS } from '../../lib/roles';
 import type { Role } from '../../types';
+
+// Порядок вариантов в списке; подписи берутся из ROLE_LABELS,
+// чтобы название роли не разъезжалось между экранами.
+const ROLE_OPTIONS: Role[] = ['EMPLOYEE', 'ADMIN'];
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -105,9 +110,11 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
-                <option value="EMPLOYEE">Сотрудник ПАО</option>
-                <option value="AUDITOR">Аудитор</option>
-                <option value="ADMIN">Администратор</option>
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
               </select>
             </div>
 

@@ -40,7 +40,7 @@ export default function ArtifactsView({ questionnaireId }: { questionnaireId: st
     }
   };
 
-  // Гарантийное письмо загружает сотрудник ПАО / аудитор — подрядчик увидит
+  // Гарантийное письмо загружает ответственный за скоринг — подрядчик увидит
   // его отдельным блоком на странице заполнения анкеты.
   const handleUploadLetter = async (selected: FileList | null) => {
     const file = selected?.[0];

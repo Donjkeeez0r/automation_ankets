@@ -40,7 +40,7 @@ export class QuestionnaireController {
   }
 
   @Get()
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getAllQuestionnaires() {
     return this.questionnaireService.getAllQuestionnaires();
   }
@@ -71,31 +71,31 @@ export class QuestionnaireController {
   }
 
   @Get(':id')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getQuestionnaire(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getQuestionnaire(questionnaireId);
   }
 
   @Get(':id/scoring')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getScoring(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getScoring(questionnaireId);
   }
 
   @Get(':id/recommendations')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }
 
   @Get(':id/activity-log')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getActivityLog(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getActivityLog(questionnaireId);
   }
 
   @Patch(':id/status')
-  @Roles(Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   updateStatus(
     @Param('id') questionnaireId: string,
     @Body() dto: UpdateStatusDto,
@@ -115,7 +115,7 @@ export class QuestionnaireController {
   }
 
   @Delete(':id')
-  @Roles(Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   remove(@Param('id') id: string) {
     return this.questionnaireService.remove(id);
   }
@@ -139,7 +139,7 @@ export class QuestionnaireController {
   }
 
   @Get(':id/recommendations/pdf')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   async downloadRecommendationsPdf(
     @Param('id') questionnaireId: string,
     @Res() res: Response,

@@ -33,11 +33,11 @@ export const getScoring = (id: string) =>
 export const getRecommendations = (id: string) =>
   api.get<Recommendation[]>(`/questionnaire/${id}/recommendations`);
 
-// EMPLOYEE / AUDITOR: история действий по анкете (от новых к старым)
+// EMPLOYEE: история действий по анкете (от новых к старым)
 export const getActivityLog = (id: string) =>
   api.get<ActivityLogEntry[]>(`/questionnaire/${id}/activity-log`);
 
-// AUDITOR: сменить статус анкеты (deadlineAt — ISO-строка, только для REVISION)
+// EMPLOYEE: сменить статус анкеты (deadlineAt — ISO-строка, только для REVISION)
 export const updateStatus = (
   id: string,
   status: Status,
@@ -62,11 +62,11 @@ export const setQuestionOverrides = (
     overrides,
   });
 
-// AUDITOR: удалить анкету со всей историей
+// EMPLOYEE: удалить анкету со всей историей
 export const deleteQuestionnaire = (id: string) =>
   api.delete(`/questionnaire/${id}`);
 
-// EMPLOYEE / AUDITOR: PDF с рекомендациями. Эндпоинт под JWT, поэтому
+// EMPLOYEE: PDF с рекомендациями. Эндпоинт под JWT, поэтому
 // простой <a href> не подойдёт — тянем файл через axios как blob.
 export const downloadRecommendationsPdf = (id: string) =>
   api.get<Blob>(`/questionnaire/${id}/recommendations/pdf`, {

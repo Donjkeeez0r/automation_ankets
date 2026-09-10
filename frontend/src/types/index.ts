@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'EMPLOYEE' | 'AUDITOR';
+export type Role = 'ADMIN' | 'EMPLOYEE';
 
 export type Status =
   | 'DRAFT'
@@ -7,9 +7,6 @@ export type Status =
   | 'APPROVED'
   | 'DECLINED'
   | 'REVISION'
-
-// Статус подрядчика, выставляется вручную (EMPLOYEE / AUDITOR)
-export type ContractorStatus = 'GREEN' | 'YELLOW' | 'RED' | 'NONE';
 
 export type QuestionType =
   | 'text'
@@ -20,7 +17,7 @@ export type QuestionType =
   | 'yesno_remote_access'
   | 'yesno_nowork';
 
-// Пользователь из JWT (ADMIN / EMPLOYEE / AUDITOR). Подрядчик аккаунта не имеет.
+// Пользователь из JWT (ADMIN / EMPLOYEE). Подрядчик аккаунта не имеет.
 export interface User {
   userId: string;
   email: string;
@@ -60,7 +57,6 @@ export interface Company {
   contactName: string;
   contactEmails: string[];
   createdAt?: string;
-  status: ContractorStatus;
 }
 
 export interface CompanyRef {
@@ -176,7 +172,7 @@ export interface LinkByToken {
 }
 
 // Вид артефакта: обычное вложение подрядчика или гарантийное письмо,
-// которое загружает сотрудник ПАО / аудитор для подписания подрядчиком.
+// которое загружает ответственный за скоринг для подписания подрядчиком.
 export type ArtifactType = 'regular' | 'guarantee_letter';
 
 // Файл-артефакт, прикреплённый к анкете

@@ -15,7 +15,7 @@ import { matchesQuery } from '../../lib/search';
 import { copyToClipboard } from '../../lib/clipboard';
 import type { ManagedUser, Role } from '../../types';
 
-const ROLES: Role[] = ['ADMIN', 'EMPLOYEE', 'AUDITOR'];
+const ROLES: Role[] = ['ADMIN', 'EMPLOYEE'];
 
 type RoleFilter = Role | 'ALL';
 

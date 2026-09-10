@@ -17,7 +17,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../generated/prisma';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CreateContactorEmployeeDto } from './dto/create-contactor-employee.dto';
-import { UpdateContractorStatusDto } from './dto/update-status.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('companies')
@@ -31,25 +30,25 @@ export class CompaniesController {
   }
 
   @Get()
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   findAll() {
     return this.companiesService.findAll();
   }
 
   @Get(':id')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
   }
 
   @Get(':id/questionnaires')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   findQuestionnaires(@Param('id') id: string) {
     return this.companiesService.findQuestionnaires(id);
   }
 
   @Delete(':id')
-  @Roles(Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   remove(@Param('id') id: string) {
     return this.companiesService.remove(id);
   }
@@ -70,7 +69,7 @@ export class CompaniesController {
   }
 
   @Get(':id/employees')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getEmployees(@Param('id') companyId: string) {
     return this.companiesService.getEmployees(companyId);
   }
@@ -79,14 +78,5 @@ export class CompaniesController {
   @Roles(Role.EMPLOYEE)
   removeEmployee(@Param('employeeId') employeeId: string) {
     return this.companiesService.removeEmployee(employeeId);
-  }
-
-  @Patch(':id/status')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
-  updateStatus(
-    @Param('id') id: string,
-    @Body() dto: UpdateContractorStatusDto,
-  ) {
-    return this.companiesService.updateStatus(id, dto.status);
   }
 }

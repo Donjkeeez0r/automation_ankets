@@ -40,7 +40,7 @@ export const downloadArtifactByToken = (token: string, artifactId: string) =>
 // чтобы axios проставил 'multipart/form-data; boundary=...' сам.
 const MULTIPART = { headers: { 'Content-Type': undefined } };
 
-// EMPLOYEE / AUDITOR
+// EMPLOYEE
 export const uploadArtifact = (
   questionnaireId: string,
   file: File,

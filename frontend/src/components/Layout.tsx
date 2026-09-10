@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Role } from '../types';
 
 interface LayoutProps {
-  requiredRole?: Role | Role[];
+  requiredRole?: Role;
 }
 
 export default function Layout({ requiredRole }: LayoutProps) {
@@ -12,13 +12,7 @@ export default function Layout({ requiredRole }: LayoutProps) {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  const allowedRoles = requiredRole
-    ? Array.isArray(requiredRole)
-      ? requiredRole
-      : [requiredRole]
-    : null;
-
-  if (allowedRoles && (!user || !allowedRoles.includes(user.role)))
+  if (requiredRole && user?.role !== requiredRole)
     return <Navigate to="/" replace />;
 
   return (

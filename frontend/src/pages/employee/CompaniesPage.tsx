@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import {
   getCompanies,
   createCompany,
@@ -8,15 +9,10 @@ import {
   getCompanyEmployees,
   addCompanyEmployee,
   deleteCompanyEmployee,
-  updateCompanyStatus,
 } from '../../api/companies';
 import { createQuestionnaire } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
-import ContractorStatusBadge, {
-  CONTRACTOR_STATUS_CONFIG,
-  CONTRACTOR_STATUS_ORDER,
-} from '../../components/ContractorStatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Tooltip from '../../components/Tooltip';
 import { copyToClipboard } from '../../lib/clipboard';
@@ -24,15 +20,13 @@ import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyFo
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
 import SearchInput from '../../components/SearchInput';
 import Pagination from '../../components/Pagination';
-import { useAuth } from '../../context/AuthContext';
-import { usePagination } from '../../lib/pagination';
+import { usePagination, PAGE_SIZE } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
 import type {
   Company,
   CompanyQuestionnaire,
   CompanyLink,
   ContractorEmployee,
-  ContractorStatus,
 } from '../../types';
 
 type CompanySort = 'name' | 'createdAt';
@@ -102,13 +96,7 @@ function LinkRow({ link }: { link: CompanyLink }) {
 
 // Сотрудники компании-подрядчика: из этого списка подрядчик выбирает себя
 // на публичной FillPage. Монтируется только при раскрытой карточке компании.
-function EmployeesSection({
-  companyId,
-  isAuditor,
-}: {
-  companyId: string;
-  isAuditor: boolean;
-}) {
+function EmployeesSection({ companyId }: { companyId: string }) {
   const [employees, setEmployees] = useState<ContractorEmployee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -188,7 +176,7 @@ function EmployeesSection({
         <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
           Сотрудники
         </h3>
-        {!isAuditor && !adding && (
+        {!adding && (
           <button
             onClick={() => setAdding(true)}
             className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
@@ -218,14 +206,12 @@ function EmployeesSection({
                   </div>
                 )}
               </div>
-              {!isAuditor && (
-                <button
-                  onClick={() => setToDelete(e)}
-                  className="shrink-0 text-xs text-red-600 hover:text-red-700"
-                >
-                  Удалить
-                </button>
-              )}
+              <button
+                onClick={() => setToDelete(e)}
+                className="shrink-0 text-xs text-red-600 hover:text-red-700"
+              >
+                Удалить
+              </button>
             </li>
           ))}
         </ul>
@@ -298,14 +284,15 @@ function EmployeesSection({
 
 interface CompanyCardProps {
   company: Company;
-  isAuditor: boolean;
+  // Карточка открыта по прямой ссылке /companies/:companyId
+  autoExpand: boolean;
   onRequestDelete: (company: Company) => void;
   onUpdated: (company: Company) => void;
 }
 
 function CompanyCard({
   company,
-  isAuditor,
+  autoExpand,
   onRequestDelete,
   onUpdated,
 }: CompanyCardProps) {
@@ -321,22 +308,10 @@ function CompanyCard({
   const [linkFor, setLinkFor] = useState<string | null>(null);
   const [fillDays, setFillDays] = useState(String(DEFAULT_FILL_DAYS));
   const [editing, setEditing] = useState(false);
-  const [statusSaving, setStatusSaving] = useState(false);
-  const [statusError, setStatusError] = useState('');
 
-  const handleStatusChange = async (status: ContractorStatus) => {
-    if (status === company.status) return;
-    setStatusSaving(true);
-    setStatusError('');
-    try {
-      const { data } = await updateCompanyStatus(company.id, status);
-      onUpdated(data);
-    } catch (err) {
-      setStatusError(errorMessage(err, 'Не удалось изменить статус'));
-    } finally {
-      setStatusSaving(false);
-    }
-  };
+  const cardRef = useRef<HTMLDivElement>(null);
+  const autoExpandDone = useRef(false);
+
 
   const load = async () => {
     setLoading(true);
@@ -357,6 +332,18 @@ function CompanyCard({
     setExpanded(next);
     if (next && !loaded) void load();
   };
+
+  // Переход по ссылке /companies/:companyId: раскрываем карточку, подгружаем
+  // анкеты и доскролливаем к ней. Отрабатывает один раз — если пользователь
+  // потом свернёт карточку вручную, повторно её не открываем.
+  useEffect(() => {
+    if (!autoExpand || autoExpandDone.current) return;
+    autoExpandDone.current = true;
+    setExpanded(true);
+    if (!loaded) void load();
+    cardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoExpand]);
 
   const handleCreateQuestionnaire = async () => {
     setBusy(true);
@@ -387,7 +374,12 @@ function CompanyCard({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div
+      ref={cardRef}
+      className={`bg-white rounded-xl border p-5 transition-colors scroll-mt-4 ${
+        autoExpand ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-4">
         <button onClick={toggle} className="min-w-0 text-left">
           <div className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -404,56 +396,33 @@ function CompanyCard({
           </div>
         </button>
         <div className="shrink-0 flex items-center gap-2">
-          {isAuditor ? (
-            <Tooltip text="Компания и все её анкеты будут удалены безвозвратно">
-              <button
-                onClick={() => onRequestDelete(company)}
-                className="px-4 py-2 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
-              >
-                Удалить
-              </button>
-            </Tooltip>
-          ) : (
-            <>
-              <Tooltip text="Изменить данные компании">
-                <button
-                  onClick={() => setEditing(true)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Редактировать
-                </button>
-              </Tooltip>
-              <button
-                onClick={handleCreateQuestionnaire}
-                disabled={busy}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {busy ? '...' : 'Создать анкету'}
-              </button>
-            </>
-          )}
+          <Tooltip text="Изменить данные компании">
+            <button
+              onClick={() => setEditing(true)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Редактировать
+            </button>
+          </Tooltip>
+          <button
+            onClick={handleCreateQuestionnaire}
+            disabled={busy}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {busy ? '...' : 'Создать анкету'}
+          </button>
+          {/* Разрушительное действие отделено от «Создать анкету»:
+              кнопки соседствуют, а промах стоит дорого. */}
+          <span aria-hidden="true" className="w-px self-stretch bg-gray-200 mx-1" />
+          <Tooltip text="Компания и все её анкеты будут удалены безвозвратно">
+            <button
+              onClick={() => onRequestDelete(company)}
+              className="px-4 py-2 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+            >
+              Удалить
+            </button>
+          </Tooltip>
         </div>
-      </div>
-
-      {/* Статус подрядчика: виден и в свёрнутой, и в развёрнутой карточке.
-          Менять могут и EMPLOYEE, и AUDITOR. */}
-      <div className="mt-3 ml-5 flex items-center gap-2 flex-wrap">
-        <ContractorStatusBadge status={company.status} />
-        <select
-          value={company.status}
-          disabled={statusSaving}
-          onChange={(e) => void handleStatusChange(e.target.value as ContractorStatus)}
-          aria-label={`Статус подрядчика «${company.name}»`}
-          className="px-2 py-1 border border-gray-300 rounded-lg text-xs bg-white disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {CONTRACTOR_STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>
-              {CONTRACTOR_STATUS_CONFIG[s].label}
-            </option>
-          ))}
-        </select>
-        {statusSaving && <span className="text-xs text-gray-400">Сохранение...</span>}
-        {statusError && <span className="text-xs text-red-600">{statusError}</span>}
       </div>
 
       {error && <div className="mt-3 text-xs text-red-600">{error}</div>}
@@ -464,9 +433,7 @@ function CompanyCard({
             <div className="text-xs text-gray-500">Загрузка анкет...</div>
           ) : questionnaires.length === 0 ? (
             <div className="text-xs text-gray-500">
-              {isAuditor
-                ? 'У компании пока нет анкет.'
-                : 'У компании пока нет анкет. Нажмите «Создать анкету».'}
+              У компании пока нет анкет. Нажмите «Создать анкету».
             </div>
           ) : (
             <div className="space-y-3">
@@ -479,31 +446,35 @@ function CompanyCard({
                         от {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                       </span>
                     </div>
-                    {!isAuditor && (
-                      <div className="flex items-center gap-2">
-                        <Tooltip text="Изменить, какие вопросы обязательны именно для этой анкеты">
-                          <button
-                            onClick={() => setOverridesFor(q.id)}
-                            disabled={busy}
-                            className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                          >
-                            Настроить обязательность вопросов
-                          </button>
-                        </Tooltip>
-                        <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
-                          <button
-                            onClick={() => {
-                              setFillDays(String(DEFAULT_FILL_DAYS));
-                              setLinkFor(q.id);
-                            }}
-                            disabled={busy}
-                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                          >
-                            Отправить ОЛ
-                          </button>
-                        </Tooltip>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to={`/questionnaires/${q.id}`}
+                        className="px-3 py-1.5 text-blue-600 text-xs font-medium hover:underline"
+                      >
+                        Открыть анкету
+                      </Link>
+                      <Tooltip text="Изменить, какие вопросы обязательны именно для этой анкеты">
+                        <button
+                          onClick={() => setOverridesFor(q.id)}
+                          disabled={busy}
+                          className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                        >
+                          Настроить обязательность вопросов
+                        </button>
+                      </Tooltip>
+                      <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
+                        <button
+                          onClick={() => {
+                            setFillDays(String(DEFAULT_FILL_DAYS));
+                            setLinkFor(q.id);
+                          }}
+                          disabled={busy}
+                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                        >
+                          Отправить ОЛ
+                        </button>
+                      </Tooltip>
+                    </div>
                   </div>
 
                   {q.links.length === 0 ? (
@@ -522,7 +493,7 @@ function CompanyCard({
             </div>
           )}
 
-          <EmployeesSection companyId={company.id} isAuditor={isAuditor} />
+          <EmployeesSection companyId={company.id} />
         </div>
       )}
 
@@ -634,8 +605,7 @@ function CompanyCard({
 }
 
 export default function CompaniesPage() {
-  const { user } = useAuth();
-  const isAuditor = user?.role === 'AUDITOR';
+  const { companyId } = useParams<{ companyId?: string }>();
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -701,14 +671,49 @@ export default function CompaniesPage() {
     `${query}|${sort}`,
   );
 
+  // Компания из ссылки может лежать не на первой странице — переключаемся
+  // на нужную, иначе карточка просто не смонтируется и раскрывать будет нечего.
+  const jumpedTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!companyId || jumpedTo.current === companyId) return;
+    const index = visible.findIndex((c) => c.id === companyId);
+    // список ещё грузится или компания скрыта фильтром — попробуем позже
+    if (index === -1) return;
+    jumpedTo.current = companyId;
+    setPage(Math.floor(index / PAGE_SIZE) + 1);
+  }, [companyId, visible, setPage]);
+
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
 
+  const hiddenByFilter =
+    companyId !== undefined &&
+    companies.some((c) => c.id === companyId) &&
+    !visible.some((c) => c.id === companyId);
+
   return (
     <div className="max-w-3xl">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">Компании-подрядчики</h1>
+      <h1 className="text-xl font-bold text-gray-900">Компании-подрядчики</h1>
+      <p className="text-sm text-gray-500 mt-1 mb-6">
+        Здесь вы заводите подрядчиков, создаёте для них анкеты и отправляете
+        одноразовые ссылки на заполнение.
+      </p>
 
-      {!isAuditor && (
+      {hiddenByFilter && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>Компания из ссылки скрыта текущим поиском.</span>
+          <button
+            onClick={() => {
+              setQuery('');
+              setSort('name');
+            }}
+            className="shrink-0 font-medium underline hover:no-underline"
+          >
+            Сбросить поиск
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-800 mb-3">Добавить компанию</h2>
         <CompanyForm
@@ -719,7 +724,6 @@ export default function CompaniesPage() {
           onSubmit={handleCreate}
         />
       </div>
-      )}
 
       {companies.length > 0 && (
         <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -759,7 +763,7 @@ export default function CompaniesPage() {
             <CompanyCard
               key={c.id}
               company={c}
-              isAuditor={isAuditor}
+              autoExpand={c.id === companyId}
               onRequestDelete={setToDelete}
               onUpdated={handleUpdated}
             />

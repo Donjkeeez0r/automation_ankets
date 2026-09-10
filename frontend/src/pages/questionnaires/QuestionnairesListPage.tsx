@@ -120,7 +120,10 @@ export default function QuestionnairesListPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">Анкеты</h1>
+      <h1 className="text-xl font-bold text-gray-900">Анкеты</h1>
+      <p className="text-sm text-gray-500 mt-1 mb-6">
+        Анкеты, заполненные подрядчиками: проверка ответов, скоринг и решение.
+      </p>
 
       {questionnaires.length > 0 && (
         <div className="mb-5 space-y-3">
@@ -176,7 +179,16 @@ export default function QuestionnairesListPage() {
               {pageItems.map((q) => (
                 <tr key={q.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900">
-                    {q.company?.name ?? '—'}
+                    {q.company?.name ? (
+                      <Link
+                        to={`/companies/${q.companyId}`}
+                        className="hover:text-blue-600 hover:underline"
+                      >
+                        {q.company.name}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-500">
                     {q.company?.contactName ?? '—'}
@@ -196,18 +208,22 @@ export default function QuestionnairesListPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
-                    <Link
-                      to={`/questionnaires/${q.id}`}
-                      className="text-blue-600 hover:underline font-medium"
-                    >
-                      Открыть
-                    </Link>
-                    <button
-                      onClick={() => setToDelete(q)}
-                      className="ml-4 text-red-600 hover:underline font-medium"
-                    >
-                      Удалить
-                    </button>
+                    <div className="inline-flex items-center gap-4">
+                      <Link
+                        to={`/questionnaires/${q.id}`}
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        Открыть
+                      </Link>
+                      {/* Разделитель: удаление необратимо, отделяем от «Открыть» */}
+                      <span aria-hidden="true" className="w-px h-4 bg-gray-200" />
+                      <button
+                        onClick={() => setToDelete(q)}
+                        className="text-gray-500 hover:text-red-600 hover:underline font-medium transition-colors"
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

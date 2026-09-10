@@ -179,7 +179,7 @@ export class UsersService {
 
   async getAuditorEmails() {
     const auditors = await this.prismaService.user.findMany({
-      where: { role: 'AUDITOR' },
+      where: { role: 'EMPLOYEE' },
       select: { email: true },
     });
     return auditors.map((a) => a.email);

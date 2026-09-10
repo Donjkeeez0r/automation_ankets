@@ -49,7 +49,7 @@ export default function ActivityLogView({
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
         <div className="text-gray-700 font-semibold text-lg mb-1">История пока пуста</div>
         <div className="text-sm text-gray-500">
-          Здесь появятся события по анкете: создание ссылки, отправка, решения аудитора
+          Здесь появятся события по анкете: создание ссылки, отправка, решения по анкете
         </div>
       </div>
     );

@@ -29,7 +29,7 @@ export class ArtifactsController {
   constructor(private artifactsService: ArtifactsService) {}
 
   @Post('questionnaire/:questionnaireId')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(
     @Param('questionnaireId') questionnaireId: string,
@@ -40,13 +40,13 @@ export class ArtifactsController {
   }
 
   @Get('questionnaire/:questionnaireId')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   getByQuestionnaire(@Param('questionnaireId') questionnaireId: string) {
     return this.artifactsService.getByQuestionnaire(questionnaireId);
   }
 
   @Get(':id/download')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   async download(@Param('id') id: string, @Res() res: Response) {
     const artifact = await this.artifactsService.getById(id);
     const filePath = join(UPLOAD_DIR, artifact.storedPath);
@@ -64,13 +64,13 @@ export class ArtifactsController {
   }
 
   @Delete(':id')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   remove(@Param('id') id: string) {
     return this.artifactsService.remove(id);
   }
 
   @Post('questionnaire/:questionnaireId/guarantee-letter')
-  @Roles(Role.EMPLOYEE, Role.AUDITOR)
+  @Roles(Role.EMPLOYEE)
   @UseInterceptors(FileInterceptor('file'))
   uploadGuaranteeLetter(
     @Param('questionnaireId') questionnaireId: string,
