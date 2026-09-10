@@ -7,6 +7,7 @@ import {
   updateStatus,
   deleteQuestionnaire,
   downloadRecommendationsPdf,
+  sendRecommendations,
   parseContentDispositionFileName,
 } from '../../api/questionnaire';
 import { saveBlobAs } from '../../api/artifacts';
@@ -57,6 +58,13 @@ export default function QuestionnaireReviewPage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState('');
 
+  const [sendingRecommendations, setSendingRecommendations] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState('');
+  const [sendError, setSendError] = useState('');
+  // Меняем ключ после успешной отправки, чтобы ActivityLogView перемонтировался
+  // и подтянул свежую запись, когда пользователь переключится на «Историю».
+  const [historyKey, setHistoryKey] = useState(0);
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -85,6 +93,32 @@ export default function QuestionnaireReviewPage() {
       setDownloadingPdf(false);
     }
   };
+
+  const handleSendRecommendations = async () => {
+    if (!id) return;
+    setSendingRecommendations(true);
+    setSendError('');
+    setSendSuccess('');
+    try {
+      const { data } = await sendRecommendations(id);
+      setSendSuccess(data?.message ?? 'Рекомендации отправлены');
+      // Отправка пишет событие в журнал — обновляем вкладку «История».
+      setHistoryKey((k) => k + 1);
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setSendError(message ?? 'Не удалось отправить рекомендации');
+    } finally {
+      setSendingRecommendations(false);
+    }
+  };
+
+  // Зелёное подтверждение живёт несколько секунд и гаснет само.
+  useEffect(() => {
+    if (!sendSuccess) return;
+    const timer = setTimeout(() => setSendSuccess(''), 5000);
+    return () => clearTimeout(timer);
+  }, [sendSuccess]);
 
   const loadQuestionnaire = () => {
     if (!id) return;
@@ -316,16 +350,37 @@ export default function QuestionnaireReviewPage() {
               <h2 className="text-sm font-semibold text-gray-700">
                 Рекомендации ({recommendations.length})
               </h2>
-              <Tooltip text="Скачать список рекомендаций в формате PDF">
-                <button
-                  onClick={handleDownloadPdf}
-                  disabled={downloadingPdf}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
-                </button>
-              </Tooltip>
+              <div className="flex items-center gap-2">
+                <Tooltip text="Скачать список рекомендаций в формате PDF">
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
+                  </button>
+                </Tooltip>
+                <Tooltip text="Отправить рекомендации на email компании">
+                  <button
+                    onClick={handleSendRecommendations}
+                    disabled={sendingRecommendations}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {sendingRecommendations
+                      ? 'Отправка...'
+                      : 'Направить рекомендации'}
+                  </button>
+                </Tooltip>
+              </div>
             </div>
+            {sendSuccess && (
+              <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
+                {sendSuccess === 'Рекомендации отправлены'
+                  ? 'Рекомендации отправлены на почту'
+                  : sendSuccess}
+              </div>
+            )}
+            {sendError && <div className="text-sm text-red-600">{sendError}</div>}
             {pdfError && <div className="text-sm text-red-600">{pdfError}</div>}
             <RecommendationsList recommendations={recommendations} />
           </div>
@@ -333,7 +388,9 @@ export default function QuestionnaireReviewPage() {
 
       {tab === 'files' && <ArtifactsView questionnaireId={questionnaire.id} />}
 
-      {tab === 'history' && <ActivityLogView questionnaireId={questionnaire.id} />}
+      {tab === 'history' && (
+        <ActivityLogView key={historyKey} questionnaireId={questionnaire.id} />
+      )}
 
       <ConfirmDialog
         open={confirmDelete}

@@ -85,3 +85,8 @@ export const parseContentDispositionFileName = (
   const plain = /filename="?([^";]+)"?/i.exec(disposition);
   return plain ? plain[1].trim() : null;
 };
+
+// EMPLOYEE: отправка рекомендаций на email компании. Тела запроса нет —
+// сервер сам собирает письмо по анкете и пишет событие в историю.
+export const sendRecommendations = (id: string) =>
+  api.post<{ message: string }>(`/questionnaire/${id}/send-recommendations`);

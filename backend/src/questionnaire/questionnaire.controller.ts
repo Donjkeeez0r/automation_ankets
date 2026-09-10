@@ -149,4 +149,12 @@ export class QuestionnaireController {
       res,
     );
   }
+
+  @Post(':id/send-recommendations')
+  @Roles(Role.EMPLOYEE)
+  sendRecommendations(@Param('id') questionnaireId: string) {
+    return this.questionnaireService.sendRecommendationsByEmail(
+      questionnaireId,
+    );
+  }
 }

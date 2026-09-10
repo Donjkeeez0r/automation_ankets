@@ -331,6 +331,45 @@ export class QuestionnaireService {
 
     if (status === 'REVISION') {
       await this.linksService.reactivateByQuestionnaireId(questionnaireId);
+
+      const fullQuestionnaire =
+        await this.prismaService.questionnaire.findUnique({
+          where: { id: questionnaireId },
+          include: { company: true, links: { where: { isActive: true } } },
+        });
+
+      const activeLink = fullQuestionnaire?.links[0];
+      const fillUrl = activeLink
+        ? `${process.env.FRONTEND_URL}/fill/${activeLink.token}`
+        : null;
+
+      if (fullQuestionnaire && fillUrl) {
+        for (const email of fullQuestionnaire.company.contactEmails) {
+          try {
+            await this.notificationsService.sendMail(
+              email,
+              'Анкета отправлена на дозаполнение',
+              `
+              <p>Здравствуйте, ${fullQuestionnaire.company.contactName}!</p>
+              <p>Ваша анкета информационной безопасности возвращена на дозаполнение со следующим комментарием:</p>
+              <blockquote>${comment ?? 'Комментарий не указан'}</blockquote>
+              <p>Внести исправления можно по ссылке: <a href="${fillUrl}">${fillUrl}</a></p>
+          `,
+            );
+          } catch (err) {
+            this.logger.error(
+              `Не удалось отправить письмо о дозаполнении на адрес ${email}`,
+              err instanceof Error ? err.stack : String(err),
+            );
+          }
+        }
+
+        await this.activityLogService.log(
+          questionnaireId,
+          'REVISION_EMAIL_SENT',
+          `Письмо о дозаполнении отправлено подрядчику (${new Date().toLocaleString('ru-RU')})`,
+        );
+      }
     }
 
     return updated;
@@ -586,5 +625,51 @@ export class QuestionnaireService {
     }
 
     doc.end();
+  }
+
+  async sendRecommendationsByEmail(questionnaireId: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+      include: { company: true },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    const recommendations = await this.getReccomendation(questionnaireId);
+
+    const listHtml = recommendations.length
+      ? recommendations
+          .map((r) => `<li><strong>${r.category}</strong>: ${r.text}</li>`)
+          .join('')
+      : '<li>Рекомендации отсутствуют — все требования выполнены.</li>';
+
+    for (const email of questionnaire.company.contactEmails) {
+      try {
+        await this.notificationsService.sendMail(
+          email,
+          'Рекомендации по результатам проверки анкеты',
+          `
+          <p>Здравствуйте, ${questionnaire.company.contactName}!</p>
+          <p>По результатам проверки анкеты информационной безопасности подготовлены следующие рекомендации:</p>
+          <ul>${listHtml}</ul>
+          `,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Не удалось отправить рекомендации на адрес ${email}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+
+    await this.activityLogService.log(
+      questionnaireId,
+      'RECOMMENDATIONS_EMAIL_SENT',
+      `Рекомендации отправлены подрядчику (${new Date().toLocaleString('ru-RU')})`,
+    );
+
+    return { message: 'Рекомендации отправлены' };
   }
 }

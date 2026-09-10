@@ -7,6 +7,8 @@ const DOT_COLORS: Record<string, string> = {
   LINK_CREATED: 'bg-blue-500',
   SUBMITTED: 'bg-indigo-500',
   DECISION_MADE: 'bg-emerald-500',
+  RECOMMENDATIONS_EMAIL_SENT: 'bg-amber-500',
+  REVISION_EMAIL_SENT: 'bg-rose-500',
 };
 
 const formatDateTime = (iso: string) =>
