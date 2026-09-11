@@ -95,8 +95,10 @@ function triggersAdditionalValue(question: Question, value: string): boolean {
   if (question.type === 'yesno_partial') {
     return value === 'Реализовано в полной мере' || value === 'Реализовано частично';
   }
+  // Для «Не предполагается данный вид работ/услуг» комментарий не нужен,
+  // но при «Да» бэкенд требует непустой additionalValue — поле должно быть на форме.
   if (question.type === 'yesno_nowork') {
-    return false;
+    return value === 'Да';
   }
   return value === 'Да';
 }
