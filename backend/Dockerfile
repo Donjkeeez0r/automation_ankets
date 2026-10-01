@@ -20,12 +20,20 @@ ENV NODE_ENV=production
 
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
-COPY package.json prisma.config.ts ./
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/src/generated ./src/generated
-COPY --from=build /app/assets ./assets
+# Приложение работает от встроенного непривилегированного пользователя node.
+# Файлы копируем сразу с владельцем node (--chown не создаёт лишний слой, как
+# RUN chown -R по node_modules). /app/uploads создаём заранее с владельцем node:
+# новый пустой volume при первом монтировании наследует владельца из образа.
+RUN mkdir -p /app/uploads && chown node:node /app /app/uploads
+
+COPY --chown=node:node package.json prisma.config.ts ./
+COPY --chown=node:node --from=build /app/dist ./dist
+COPY --chown=node:node --from=build /app/node_modules ./node_modules
+COPY --chown=node:node --from=build /app/prisma ./prisma
+COPY --chown=node:node --from=build /app/src/generated ./src/generated
+COPY --chown=node:node --from=build /app/assets ./assets
+
+USER node
 
 EXPOSE 3000
 
