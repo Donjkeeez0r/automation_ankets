@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// Фронт и API отдаются с одного origin: в проде nginx проксирует /api/ на
+// бэкенд, в dev то же делает прокси vite (vite.config.ts). Поэтому по
+// умолчанию — относительный путь, абсолютный URL не нужен.
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 

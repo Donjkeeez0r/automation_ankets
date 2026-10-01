@@ -15,7 +15,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       return true;
     } catch {
       // Clipboard API есть, но браузер отказал (нет разрешения, документ не
-      // в фокусе) — пробуем резервный способ ниже.
+      // в фокусе) — пробуем резервный способ.
+      return legacyCopy(text);
     }
   }
   return legacyCopy(text);

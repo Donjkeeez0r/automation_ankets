@@ -7,5 +7,14 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     strictPort: true,
+    // В dev нет nginx: повторяем его location /api/ — срезаем префикс /api
+    // и отправляем запрос на бэкенд.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
 })

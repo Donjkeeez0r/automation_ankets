@@ -1,5 +1,5 @@
 import axios from 'axios';
-import api from './client';
+import api, { API_BASE_URL } from './client';
 import type { Artifact } from '../types';
 
 // Подрядчик (без авторизации): загрузить файл по токену ссылки.
@@ -7,7 +7,7 @@ import type { Artifact } from '../types';
 // не нужен заголовок Authorization, а редирект на /login при 401 сломал бы
 // заполнение анкеты.
 const publicApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: API_BASE_URL,
 });
 
 export const uploadArtifactByToken = (

@@ -128,7 +128,10 @@ export class QuestionnaireService {
       });
       return questionnaire;
     } catch (err) {
-      console.error(err);
+      this.logger.error(
+        `Не удалось создать анкету для компании ${companyId} (сотрудник ${employeeId})`,
+        err instanceof Error ? err.stack : String(err),
+      );
       throw new InternalServerErrorException('Не удалось создать анкету!');
     }
   }

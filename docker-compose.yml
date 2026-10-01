@@ -43,7 +43,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://217.150.196.109/api
+        VITE_API_URL: /api
     restart: always
     depends_on:
       - backend
