@@ -3,7 +3,6 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
-
 datasource db {
   provider = "postgresql"
 }
@@ -23,173 +22,206 @@ enum Status {
   FAILED
 }
 
-model User {
-  id                        String            @id @default(uuid())
-  email                     String            @unique
-  password                  String
-  role                      Role              @default(EMPLOYEE)
-  name                      String
-  organization              String
-  createdAt                 DateTime          @default(now())
+enum QuestionnaireType {
+  SECURITY // анкета ИБ
+  MATURITY // зрелость (ФСТЭК)
+}
 
-  employeeQuestionnaires    Questionnaire[]   @relation("EmployeeQuestionnaires")
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  role         Role     @default(EMPLOYEE)
+  name         String
+  organization String
+  createdAt    DateTime @default(now())
+
+  employeeQuestionnaires Questionnaire[] @relation("EmployeeQuestionnaires")
 }
 
 model Company {
-  id                    String                @id @default(uuid())
-  name                  String
-  inn                   String?
-  contactName           String
-  contactEmails         String[]
-  createdAt             DateTime              @default(now())
+  id            String   @id @default(uuid())
+  name          String
+  inn           String?
+  contactName   String
+  contactEmails String[]
+  createdAt     DateTime @default(now())
 
-  questionnaires        Questionnaire[]
+  questionnaires Questionnaire[]
 
-  employees             ContactorEmployee[]
+  employees ContactorEmployee[]
 }
 
 model ContactorEmployee {
-  id                    String                @id @default(uuid())
-  name                  String         
-  position              String?
-  email                 String?
-  createdAt             DateTime              @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  position  String?
+  email     String?
+  createdAt DateTime @default(now())
 
-  companyId             String
-  company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  filledQuestionnaires  Questionnaire[]
+  filledQuestionnaires Questionnaire[]
 }
 
 model Questionnaire {
-  id                  String                @id @default(uuid())
-  status              Status                @default(DRAFT)
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt()
-  comment             String?
-  deadlineAt          DateTime?
-  deadlineNotifiedAt  DateTime?
+  id                 String            @id @default(uuid())
+  status             Status            @default(DRAFT)
+  type               QuestionnaireType @default(SECURITY)
+  targetLevel        Int?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt()
+  comment            String?
+  deadlineAt         DateTime?
+  deadlineNotifiedAt DateTime?
 
-  fillDeadlineAt      DateTime?
-  fillDeadlineNotifiedAt  DateTime?
+  fillDeadlineAt         DateTime?
+  fillDeadlineNotifiedAt DateTime?
 
-  companyId           String
-  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  employeeId          String
-  employee            User                  @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   User   @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
 
-  answers             Answer[]
-  scoring             ScoringResult?
+  answers Answer[]
+  scoring ScoringResult?
 
-  overrides           QuestionOverride[]
+  overrides QuestionOverride[]
 
-  links               QuestionnaireLink[]
+  links QuestionnaireLink[]
 
-  artifacts           Artifact[]
+  artifacts Artifact[]
 
-  activityLogs        ActivityLog[]
+  activityLogs ActivityLog[]
 
-  filledByEmployeeId  String?
-  filledByEmployee    ContactorEmployee?    @relation(fields: [filledByEmployeeId], references: [id], onDelete: SetNull)
+  maturityItems MaturityItem[]
+
+  filledByEmployeeId String?
+  filledByEmployee   ContactorEmployee? @relation(fields: [filledByEmployeeId], references: [id], onDelete: SetNull)
+}
+
+model MaturityItem {
+  id            String  @id @default(uuid())
+  direction     Int
+  notApplicable Boolean @default(false)
+
+  documentation Float?
+  execution     Float?
+  tools         Float?
+  qualification Float?
+  control       Float?
+  training      Float?
+  externalAudit Float?
+  improvement   Float?
+
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  @@unique([questionnaireId, direction])
 }
 
 model ActivityLog {
-  id                  String                @id @default(uuid())
-  type                String
-  description         String
-  createdAt           DateTime              @default(now())
+  id          String   @id @default(uuid())
+  type        String
+  description String
+  createdAt   DateTime @default(now())
 
-  questionnaireId     String
-  questionnaire       Questionnaire         @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }
 
 model Artifact {
-  id                  String          @id @default(uuid())
-  fileName            String
-  storedPath          String
-  mimeType            String
-  size                Int
-  uploadedAt          DateTime        @default(now())
-  type                String          @default("regular")
+  id         String   @id @default(uuid())
+  fileName   String
+  storedPath String
+  mimeType   String
+  size       Int
+  uploadedAt DateTime @default(now())
+  type       String   @default("regular")
 
-  questionnaireId     String
-  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 
-  questionId          String?
-  question            Question?       @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id], onDelete: SetNull)
 }
 
 model QuestionOverride {
-  id                  String          @id @default(uuid())
-  required            Boolean
+  id       String  @id @default(uuid())
+  required Boolean
 
-  questionnaireId     String
-  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 
-  questionId          String
-  question            Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionnaireId, questionId])
 }
 
 model QuestionnaireLink {
-  id                  String          @id @default(uuid())
-  token               String          @unique
-  expiresAt           DateTime
-  isActive            Boolean         @default(true)
-  createdAt           DateTime        @default(now())
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  questionnaireId     String
-  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }
 
 model Question {
-  id                  String          @id @default(uuid())
-  code                String          @unique
-  section             String
-  text                String
-  type                String
-  order               Int
-  required            Boolean         @default(true)
-  groupLabel          String?
-  additionalLabel     String?
+  id              String  @id @default(uuid())
+  code            String  @unique
+  section         String
+  text            String
+  type            String
+  order           Int
+  required        Boolean @default(true)
+  groupLabel      String?
+  additionalLabel String?
 
-  answers             Answer[]
+  answers Answer[]
 
-  overrides           QuestionOverride[]
+  overrides QuestionOverride[]
 
-  artifacts           Artifact[]
+  artifacts Artifact[]
 }
 
 model Answer {
-  id                  String          @id @default(uuid())
-  value               String
-  additionalValue     String?
+  id              String  @id @default(uuid())
+  value           String
+  additionalValue String?
 
-  questionId          String
-  question            Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
-  questionnaireId     String
-  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionnaireId String
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 
   @@unique([questionnaireId, questionId])
 }
 
 model ScoringResult {
-  id                  String          @id @default(uuid())
-  recommended         Boolean         @default(false)
-  
-  auditScore          Int
-  documentScore       Int
-  measuresScore       Int
-  
-  gisScore            Int?
-  pdnScore            Int?
-  remoteAccessScore   Int?
-  devScore            Int?
-  contractorsScore    Int?
+  id          String  @id @default(uuid())
+  recommended Boolean @default(false)
 
-  questionnaireId     String          @unique
-  questionnaire       Questionnaire   @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  auditScore    Int
+  documentScore Int
+  measuresScore Int
+
+  gisScore          Int?
+  pdnScore          Int?
+  remoteAccessScore Int?
+  devScore          Int?
+  contractorsScore  Int?
+
+  questionnaireId String        @unique
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
 }

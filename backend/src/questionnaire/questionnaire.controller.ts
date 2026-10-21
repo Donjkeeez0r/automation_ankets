@@ -21,11 +21,17 @@ import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { SetOverridesDto } from './dto/question-override.dto';
 import type { Response } from 'express';
+import { MaturityService } from '../maturity/maturity.service';
+import { SaveMaturityDto } from '../maturity/dto/save-maturity.dto';
+import { UpdateTargetLevelDto } from '../maturity/dto/update-target-level.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('questionnaire')
 export class QuestionnaireController {
-  constructor(private questionnaireService: QuestionnaireService) {}
+  constructor(
+    private questionnaireService: QuestionnaireService,
+    private maturityService: MaturityService,
+  ) {}
 
   @Post()
   @Roles(Role.EMPLOYEE)
@@ -33,10 +39,7 @@ export class QuestionnaireController {
     @CurrentUser() user: { userId: string },
     @Body() dto: CreateQuestionnaireDto,
   ) {
-    return this.questionnaireService.createQuestionnaire(
-      user.userId,
-      dto.companyId,
-    );
+    return this.questionnaireService.createQuestionnaire(user.userId, dto);
   }
 
   @Get()
@@ -155,6 +158,36 @@ export class QuestionnaireController {
   sendRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.sendRecommendationsByEmail(
       questionnaireId,
+    );
+  }
+
+  @Get(':id/maturity/result')
+  @Roles(Role.EMPLOYEE)
+  getMaturityResult(@Param('id') questionnaireId: string) {
+    return this.maturityService.getResult(questionnaireId);
+  }
+
+  @Patch(':id/maturity')
+  @Roles(Role.EMPLOYEE)
+  updateMaturityItems(
+    @Param('id') questionaireId: string,
+    @Body() dto: SaveMaturityDto,
+  ) {
+    return this.maturityService.updateItemsByEmployee(
+      questionaireId,
+      dto.items,
+    );
+  }
+
+  @Patch(':id/maturity/target-level')
+  @Roles(Role.EMPLOYEE)
+  updateTargetLevel(
+    @Param('id') questionnaireId: string,
+    @Body() dto: UpdateTargetLevelDto,
+  ) {
+    return this.maturityService.updateTargetLevel(
+      questionnaireId,
+      dto.targetLevel,
     );
   }
 }

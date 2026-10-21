@@ -21,9 +21,6 @@ ENV NODE_ENV=production
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # Приложение работает от встроенного непривилегированного пользователя node.
-# Файлы копируем сразу с владельцем node (--chown не создаёт лишний слой, как
-# RUN chown -R по node_modules). /app/uploads создаём заранее с владельцем node:
-# новый пустой volume при первом монтировании наследует владельца из образа.
 RUN mkdir -p /app/uploads && chown node:node /app /app/uploads
 
 COPY --chown=node:node package.json prisma.config.ts ./

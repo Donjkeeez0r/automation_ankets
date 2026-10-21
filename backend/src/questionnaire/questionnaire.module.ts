@@ -7,9 +7,11 @@ import { LinksModule } from '../links/links.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { MaturityController } from '../maturity/maturity.controller';
+import { MaturityService } from '../maturity/maturity.service';
 
 @Module({
-  providers: [QuestionnaireService],
+  providers: [QuestionnaireService, MaturityService],
   imports: [
     PrismaModule,
     ActivityLogModule,
@@ -18,7 +20,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
     UsersModule,
     NotificationsModule,
   ],
-  controllers: [QuestionnaireController],
-  exports: [QuestionnaireService],
+  controllers: [QuestionnaireController, MaturityController],
+  exports: [QuestionnaireService, MaturityService],
 })
 export class QuestionnaireModule {}

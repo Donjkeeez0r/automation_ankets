@@ -27,6 +27,8 @@ import { ArtifactsService } from '../artifacts/artifacts.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CompaniesService } from '../companies/companies.service';
 import { CreateLinkDto } from './dto/create-link.dto';
+import { MaturityService } from '../maturity/maturity.service';
+import { SaveMaturityDto } from '../maturity/dto/save-maturity.dto';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
@@ -39,6 +41,7 @@ export class LinksController {
     private questionnaireService: QuestionnaireService,
     private artifactsService: ArtifactsService,
     private companiesService: CompaniesService,
+    private maturityService: MaturityService,
   ) {}
 
   @Post('questionnaire/:id')
@@ -79,10 +82,6 @@ export class LinksController {
     @Param('token') token: string,
     @Body() dto?: SubmitAnswerDto,
   ) {
-    // Express 5 оставляет body undefined, если тело не передано или
-    // Content-Type не application/json. Сейчас такой запрос отсекает
-    // ValidationPipe (answers обязателен), но хендлер не должен зависеть
-    // от глобальной настройки пайпов.
     if (!dto?.answers) {
       throw new BadRequestException('Не передан список ответов!');
     }
@@ -92,6 +91,19 @@ export class LinksController {
       link.questionnaireId,
       dto.answers,
     );
+  }
+
+  @Post(':token/maturity')
+  async saveMaturity(
+    @Param('token') token: string,
+    @Body() dto?: SaveMaturityDto,
+  ) {
+    if (!dto?.items) {
+      throw new BadRequestException('Не передан список направлений!');
+    }
+
+    const link = await this.linksService.findByToken(token);
+    return this.maturityService.saveItems(link.questionnaireId, dto.items);
   }
 
   @Post(':token/submit')
@@ -170,9 +182,22 @@ export class LinksController {
   @Post(':token/select-employee')
   async selectEmployee(
     @Param('token') token: string,
-    @Body('employeeId') employeeId: string,
+    @Body('employeeId') employeeId?: string,
   ) {
     const link = await this.linksService.findByToken(token);
+
+    // Без строкового id Prisma упадёт с 500 — отвечаем так же, как на чужого сотрудника.
+    if (typeof employeeId !== 'string' || !employeeId) {
+      throw new NotFoundException('Сотрудник не найден!');
+    }
+
+    const employee = await this.companiesService.getEmployeeById(employeeId);
+
+    // Чужой сотрудник — тот же 404, чтобы не подтверждать его существование.
+    if (employee.companyId !== link.questionnaire.companyId) {
+      throw new NotFoundException('Сотрудник не найден!');
+    }
+
     return this.questionnaireService.setFilledByEmployee(
       link.questionnaireId,
       employeeId,

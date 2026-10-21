@@ -107,6 +107,18 @@ export class CompaniesService {
     });
   }
 
+  async getEmployeeById(employeeId: string) {
+    const employee = await this.prismaService.contactorEmployee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!employee) {
+      throw new NotFoundException('Сотрудник не найден!');
+    }
+
+    return employee;
+  }
+
   async removeEmployee(employeeId: string) {
     const employee = await this.prismaService.contactorEmployee.findUnique({
       where: { id: employeeId },

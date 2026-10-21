@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { login as apiLogin } from '../../api/auth';
 import { useAuth } from '../../context/AuthContext';
 import { landingPath } from '../../lib/roles';
@@ -92,13 +92,6 @@ export default function LoginPage() {
               {loading ? 'Вход...' : 'Войти'}
             </button>
           </form>
-
-          <p className="mt-4 text-center text-sm text-gray-500">
-            Нет аккаунта?{' '}
-            <Link to="/register" className="text-blue-600 hover:underline font-medium">
-              Зарегистрироваться
-            </Link>
-          </p>
         </div>
       </div>
     </div>

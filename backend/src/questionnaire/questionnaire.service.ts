@@ -10,7 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerDto } from './dto/answer.dto';
 import { ScoringService } from '../scoring/scoring.service';
-import { Status } from '../generated/prisma';
+import { Status, QuestionnaireType } from '../generated/prisma';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { LinksService } from '../links/links.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,6 +20,9 @@ import PDFDocument from 'pdfkit';
 import { Response } from 'express';
 import { join } from 'path';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
+import { DIRECTIONS } from '../maturity/maturity.constants';
+import { MaturityService } from '../maturity/maturity.service';
 
 const FONT_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans.ttf');
 const FONT_BOLD_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans-Bold.ttf');
@@ -36,7 +39,23 @@ export class QuestionnaireService {
     private notificationsService: NotificationsService,
     private usersService: UsersService,
     private activityLogService: ActivityLogService,
+    private maturityService: MaturityService,
   ) {}
+
+  private async ensureSecurityQuestionnaire(questionnaireId: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+      select: { type: true },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    if (questionnaire.type !== QuestionnaireType.SECURITY) {
+      throw new BadRequestException('Действие доступно только для анкеты ИБ');
+    }
+  }
 
   async validateRequiredAnswers(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
@@ -118,15 +137,23 @@ export class QuestionnaireService {
     });
   }
 
-  async createQuestionnaire(employeeId: string, companyId: string) {
+  async createQuestionnaire(employeeId: string, dto: CreateQuestionnaireDto) {
+    const { companyId } = dto;
+    const type = dto.type ?? QuestionnaireType.SECURITY;
+    const isMaturity = type === QuestionnaireType.MATURITY;
+
     try {
-      const questionnaire = await this.prismaService.questionnaire.create({
+      return await this.prismaService.questionnaire.create({
         data: {
           employeeId,
           companyId,
+          type,
+          targetLevel: isMaturity ? dto.targetLevel : null,
+          maturityItems: isMaturity
+            ? { create: DIRECTIONS.map((d) => ({ direction: d.id })) }
+            : undefined,
         },
       });
-      return questionnaire;
     } catch (err) {
       this.logger.error(
         `Не удалось создать анкету для компании ${companyId} (сотрудник ${employeeId})`,
@@ -137,6 +164,8 @@ export class QuestionnaireService {
   }
 
   async saveAnswers(questionnaireId: string, answers: AnswerDto[]) {
+    await this.ensureSecurityQuestionnaire(questionnaireId);
+
     for (const answer of answers) {
       await this.prismaService.answer.upsert({
         where: {
@@ -179,6 +208,7 @@ export class QuestionnaireService {
           },
         },
         filledByEmployee: true,
+        maturityItems: { orderBy: { direction: 'asc' } },
       },
     });
 
@@ -203,7 +233,13 @@ export class QuestionnaireService {
       throw new BadRequestException('Анкета уже была отправлена!');
     }
 
-    await this.validateRequiredAnswers(questionnaireId);
+    const isMaturity = questionnaire.type === QuestionnaireType.MATURITY;
+
+    if (isMaturity) {
+      await this.maturityService.validateForSubmit(questionnaireId);
+    } else {
+      await this.validateRequiredAnswers(questionnaireId);
+    }
 
     const updated = await this.prismaService.questionnaire.update({
       where: { id: questionnaireId },
@@ -216,23 +252,20 @@ export class QuestionnaireService {
       'Анкета отправлена подрядчиком на проверку',
     );
 
-    // Статус уже переведён в SUBMITTED, поэтому побочные эффекты ниже не должны
-    // ронять ответ: иначе подрядчик увидит ошибку у успешно отправленной анкеты,
-    // а повторная попытка упрётся в «Анкета уже была отправлена!».
-    try {
-      await this.scoringService.calculateScore(questionnaireId);
-    } catch (err) {
-      this.logger.error(
-        `Не удалось рассчитать скоринг для анкеты ${questionnaireId}`,
-        err instanceof Error ? err.stack : String(err),
-      );
+    if (!isMaturity) {
+      try {
+        await this.scoringService.calculateScore(questionnaireId);
+      } catch (err) {
+        this.logger.error(
+          `Не удалось рассчитать скоринг для анкеты ${questionnaireId}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
     }
 
     try {
       const auditorEmails = await this.usersService.getAuditorEmails();
       for (const email of auditorEmails) {
-        // Каждое письмо отправляем изолированно: недействительный адрес одного
-        // аудитора не должен лишать уведомления остальных.
         try {
           await this.notificationsService.sendMail(
             email,
@@ -276,6 +309,8 @@ export class QuestionnaireService {
   }
 
   async getScoring(questionnaireId: string) {
+    await this.ensureSecurityQuestionnaire(questionnaireId);
+
     const scoring = await this.prismaService.scoringResult.findUnique({
       where: { questionnaireId },
     });
@@ -288,6 +323,8 @@ export class QuestionnaireService {
   }
 
   async getReccomendation(questionnaireId: string) {
+    await this.ensureSecurityQuestionnaire(questionnaireId);
+
     return this.scoringService.getRecommendations(questionnaireId);
   }
 
@@ -426,6 +463,8 @@ export class QuestionnaireService {
   }
 
   async recalculate(questionnaireId: string) {
+    await this.ensureSecurityQuestionnaire(questionnaireId);
+
     return this.scoringService.calculateScore(questionnaireId);
   }
 
@@ -540,13 +579,7 @@ export class QuestionnaireService {
     questionnaireId: string,
     overrides: { questionId: string; required: boolean }[],
   ) {
-    const questionnaire = await this.prismaService.questionnaire.findUnique({
-      where: { id: questionnaireId },
-    });
-
-    if (!questionnaire) {
-      throw new NotFoundException('Анкета не найдена!');
-    }
+    await this.ensureSecurityQuestionnaire(questionnaireId);
 
     for (const override of overrides) {
       await this.prismaService.questionOverride.upsert({

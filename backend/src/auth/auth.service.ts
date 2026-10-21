@@ -1,11 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { LoginDto } from './dto/auth.dto';
 import bcrypt from 'bcrypt';
 import { Role } from '../generated/prisma';
 
@@ -15,26 +11,6 @@ export class AuthService {
     private jwtService: JwtService,
     private usersService: UsersService,
   ) {}
-
-  async register(dto: RegisterDto) {
-    const existingEmail = await this.usersService.findByEmail(dto.email);
-
-    if (existingEmail) {
-      throw new BadRequestException('Данный email уже занят!');
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    const user = await this.usersService.createUser({
-      email: dto.email,
-      name: dto.name,
-      organization: dto.organization,
-      password: hashedPassword,
-      role: dto.role ?? Role.EMPLOYEE,
-    });
-
-    return this.generateToken(user);
-  }
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);

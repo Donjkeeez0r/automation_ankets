@@ -4,7 +4,6 @@ import Layout from './components/Layout';
 import { landingPath } from './lib/roles';
 
 import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 
 import UsersPage from './pages/admin/UsersPage';
@@ -26,7 +25,6 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
 
           {/* Подрядчик — без авторизации, по одноразовой ссылке */}
           <Route path="/fill/:token" element={<FillPage />} />

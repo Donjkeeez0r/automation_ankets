@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '../generated/prisma';
 import { randomBytes } from 'crypto';
 import { CreateUserDto } from './dto/create-user.dto';
 import bcrypt from 'bcrypt';
@@ -116,26 +115,6 @@ export class UsersService {
     });
 
     return existingUser;
-  }
-
-  async createUser(data: {
-    email: string;
-    password: string;
-    name: string;
-    organization: string;
-    role: Role;
-  }) {
-    return this.prismaService.user.create({
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
-      },
-    });
   }
 
   async getMe(userId: string) {
