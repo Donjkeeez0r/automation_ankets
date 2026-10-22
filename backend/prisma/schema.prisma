@@ -83,7 +83,8 @@ model Questionnaire {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   employeeId String
-  employee   User   @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Cascade)
+  // Restrict: пользователя с анкетами удалить нельзя — сначала передать анкеты
+  employee   User   @relation("EmployeeQuestionnaires", fields: [employeeId], references: [id], onDelete: Restrict)
 
   answers Answer[]
   scoring ScoringResult?

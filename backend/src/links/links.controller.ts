@@ -29,6 +29,9 @@ import { CompaniesService } from '../companies/companies.service';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { MaturityService } from '../maturity/maturity.service';
 import { SaveMaturityDto } from '../maturity/dto/save-maturity.dto';
+import { QuestionnaireAccessService } from '../access/questionnaire-access.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/types';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
@@ -42,15 +45,20 @@ export class LinksController {
     private artifactsService: ArtifactsService,
     private companiesService: CompaniesService,
     private maturityService: MaturityService,
+    private access: QuestionnaireAccessService,
   ) {}
 
   @Post('questionnaire/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.EMPLOYEE)
-  createLink(
+  async createLink(
+    @CurrentUser() user: AuthUser,
     @Param('id') questionnaireId: string,
     @Body() dto?: CreateLinkDto,
   ) {
+    // Ссылку на заполнение выдаёт только закреплённый за анкетой ответственный
+    await this.access.assertCanEdit(questionnaireId, user);
+
     // Тело запроса может отсутствовать: Express 5 не подставляет пустой объект,
     // если body не передан или Content-Type не application/json.
     // В этом случае срок заполнения берётся из DEFAULT_FILL_DAYS.

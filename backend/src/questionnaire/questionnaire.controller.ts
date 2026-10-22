@@ -24,44 +24,50 @@ import type { Response } from 'express';
 import { MaturityService } from '../maturity/maturity.service';
 import { SaveMaturityDto } from '../maturity/dto/save-maturity.dto';
 import { UpdateTargetLevelDto } from '../maturity/dto/update-target-level.dto';
+import { QuestionnaireAccessService } from '../access/questionnaire-access.service';
+import type { AuthUser } from '../auth/types';
+import { ChangeOwnerDto } from './dto/change-owner.dto';
 
+// Права (см. docs/ROLES.md):
+// - просмотр анкет — обе роли;
+// - создание и любые изменения анкеты — только закреплённый за ней EMPLOYEE;
+// - удаление — закреплённый EMPLOYEE или ADMIN;
+// - общий банк вопросов и передача анкеты другому ответственному — только ADMIN.
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('questionnaire')
 export class QuestionnaireController {
   constructor(
     private questionnaireService: QuestionnaireService,
     private maturityService: MaturityService,
+    private access: QuestionnaireAccessService,
   ) {}
 
   @Post()
   @Roles(Role.EMPLOYEE)
-  create(
-    @CurrentUser() user: { userId: string },
-    @Body() dto: CreateQuestionnaireDto,
-  ) {
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateQuestionnaireDto) {
     return this.questionnaireService.createQuestionnaire(user.userId, dto);
   }
 
   @Get()
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getAllQuestionnaires() {
     return this.questionnaireService.getAllQuestionnaires();
   }
 
   @Post('questions')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN)
   createQuestion(@Body() dto: CreateQuestionDto) {
     return this.questionnaireService.createQuestion(dto);
   }
 
   @Patch('questions/:id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN)
   updateQuestion(@Param('id') id: string, @Body() dto: UpdateQuestionDto) {
     return this.questionnaireService.updateQuestion(id, dto);
   }
 
   @Delete('questions/:id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN)
   deleteQuestion(@Param('id') id: string) {
     return this.questionnaireService.deleteQuestion(id);
   }
@@ -74,35 +80,37 @@ export class QuestionnaireController {
   }
 
   @Get(':id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getQuestionnaire(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getQuestionnaire(questionnaireId);
   }
 
   @Get(':id/scoring')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getScoring(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getScoring(questionnaireId);
   }
 
   @Get(':id/recommendations')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getRecommendations(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getReccomendation(questionnaireId);
   }
 
   @Get(':id/activity-log')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getActivityLog(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getActivityLog(questionnaireId);
   }
 
   @Patch(':id/status')
   @Roles(Role.EMPLOYEE)
-  updateStatus(
+  async updateStatus(
+    @CurrentUser() user: AuthUser,
     @Param('id') questionnaireId: string,
     @Body() dto: UpdateStatusDto,
   ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.questionnaireService.updateStatus(
       questionnaireId,
       dto.status,
@@ -111,24 +119,43 @@ export class QuestionnaireController {
     );
   }
 
+  @Patch(':id/owner')
+  @Roles(Role.ADMIN)
+  changeOwner(
+    @Param('id') questionnaireId: string,
+    @Body() dto: ChangeOwnerDto,
+  ) {
+    return this.questionnaireService.changeOwner(
+      questionnaireId,
+      dto.employeeId,
+    );
+  }
+
   @Post(':id/recalculate')
   @Roles(Role.EMPLOYEE)
-  recalculate(@Param('id') questionnaireId: string) {
+  async recalculate(
+    @CurrentUser() user: AuthUser,
+    @Param('id') questionnaireId: string,
+  ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.questionnaireService.recalculate(questionnaireId);
   }
 
   @Delete(':id')
-  @Roles(Role.EMPLOYEE)
-  remove(@Param('id') id: string) {
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.access.assertCanDelete(id, user);
     return this.questionnaireService.remove(id);
   }
 
   @Patch(':id/question-overrides')
   @Roles(Role.EMPLOYEE)
-  setOverrides(
+  async setOverrides(
+    @CurrentUser() user: AuthUser,
     @Param('id') questionnaireId: string,
     @Body() dto: SetOverridesDto,
   ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.questionnaireService.setQuestionOverrides(
       questionnaireId,
       dto.overrides,
@@ -136,13 +163,13 @@ export class QuestionnaireController {
   }
 
   @Get(':id/question-overrides')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getOverrides(@Param('id') questionnaireId: string) {
     return this.questionnaireService.getQuestionOverrides(questionnaireId);
   }
 
   @Get(':id/recommendations/pdf')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   async downloadRecommendationsPdf(
     @Param('id') questionnaireId: string,
     @Res() res: Response,
@@ -155,36 +182,44 @@ export class QuestionnaireController {
 
   @Post(':id/send-recommendations')
   @Roles(Role.EMPLOYEE)
-  sendRecommendations(@Param('id') questionnaireId: string) {
+  async sendRecommendations(
+    @CurrentUser() user: AuthUser,
+    @Param('id') questionnaireId: string,
+  ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.questionnaireService.sendRecommendationsByEmail(
       questionnaireId,
     );
   }
 
   @Get(':id/maturity/result')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getMaturityResult(@Param('id') questionnaireId: string) {
     return this.maturityService.getResult(questionnaireId);
   }
 
   @Patch(':id/maturity')
   @Roles(Role.EMPLOYEE)
-  updateMaturityItems(
-    @Param('id') questionaireId: string,
+  async updateMaturityItems(
+    @CurrentUser() user: AuthUser,
+    @Param('id') questionnaireId: string,
     @Body() dto: SaveMaturityDto,
   ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.maturityService.updateItemsByEmployee(
-      questionaireId,
+      questionnaireId,
       dto.items,
     );
   }
 
   @Patch(':id/maturity/target-level')
   @Roles(Role.EMPLOYEE)
-  updateTargetLevel(
+  async updateTargetLevel(
+    @CurrentUser() user: AuthUser,
     @Param('id') questionnaireId: string,
     @Body() dto: UpdateTargetLevelDto,
   ) {
+    await this.access.assertCanEdit(questionnaireId, user);
     return this.maturityService.updateTargetLevel(
       questionnaireId,
       dto.targetLevel,

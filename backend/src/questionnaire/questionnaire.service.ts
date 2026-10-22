@@ -10,11 +10,10 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerDto } from './dto/answer.dto';
 import { ScoringService } from '../scoring/scoring.service';
-import { Status, QuestionnaireType } from '../generated/prisma';
+import { Status, QuestionnaireType, Role } from '../generated/prisma';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { LinksService } from '../links/links.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { UsersService } from '../users/users.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import PDFDocument from 'pdfkit';
 import { Response } from 'express';
@@ -23,6 +22,9 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { DIRECTIONS } from '../maturity/maturity.constants';
 import { MaturityService } from '../maturity/maturity.service';
+
+// Ответственный за скоринг, за которым закреплена анкета (без пароля)
+const OWNER_SELECT = { select: { id: true, name: true, email: true } };
 
 const FONT_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans.ttf');
 const FONT_BOLD_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans-Bold.ttf');
@@ -37,7 +39,6 @@ export class QuestionnaireService {
     @Inject(forwardRef(() => LinksService))
     private linksService: LinksService,
     private notificationsService: NotificationsService,
-    private usersService: UsersService,
     private activityLogService: ActivityLogService,
     private maturityService: MaturityService,
   ) {}
@@ -208,6 +209,7 @@ export class QuestionnaireService {
           },
         },
         filledByEmployee: true,
+        employee: OWNER_SELECT,
         maturityItems: { orderBy: { direction: 'asc' } },
       },
     });
@@ -222,7 +224,11 @@ export class QuestionnaireService {
   async submitQuestionnaire(questionnaireId: string) {
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
-      include: { answers: { include: { question: true } }, company: true },
+      include: {
+        answers: { include: { question: true } },
+        company: true,
+        employee: OWNER_SELECT,
+      },
     });
 
     if (!questionnaire) {
@@ -263,28 +269,19 @@ export class QuestionnaireService {
       }
     }
 
+    // Проверять анкету может только закреплённый за ней ответственный — ему и пишем.
     try {
-      const auditorEmails = await this.usersService.getAuditorEmails();
-      for (const email of auditorEmails) {
-        try {
-          await this.notificationsService.sendMail(
-            email,
-            'Новая анкета на проверку',
-            `
+      await this.notificationsService.sendMail(
+        questionnaire.employee.email,
+        'Новая анкета на проверку',
+        `
           <p>Поступила новая анкета от компании «${questionnaire.company.name}» для проверки.</p>
           <p>Проверьте её в системе анкетирования.</p>
         `,
-          );
-        } catch (err) {
-          this.logger.error(
-            `Не удалось уведомить аудитора ${email} об анкете ${questionnaireId}`,
-            err instanceof Error ? err.stack : String(err),
-          );
-        }
-      }
+      );
     } catch (err) {
       this.logger.error(
-        `Не удалось уведомить аудиторов об анкете ${questionnaireId}`,
+        `Не удалось уведомить ответственного ${questionnaire.employee.email} об анкете ${questionnaireId}`,
         err instanceof Error ? err.stack : String(err),
       );
     }
@@ -303,6 +300,7 @@ export class QuestionnaireService {
             contactEmails: true,
           },
         },
+        employee: OWNER_SELECT,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -482,6 +480,46 @@ export class QuestionnaireService {
     return { message: 'Анкета удалена!' };
   }
 
+  // ADMIN: закрепить анкету за другим ответственным за скоринг
+  async changeOwner(questionnaireId: string, employeeId: string) {
+    const questionnaire = await this.prismaService.questionnaire.findUnique({
+      where: { id: questionnaireId },
+      include: { employee: { select: { id: true, name: true } } },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException('Анкета не найдена!');
+    }
+
+    const newOwner = await this.prismaService.user.findUnique({
+      where: { id: employeeId },
+      select: { id: true, name: true, role: true },
+    });
+
+    if (!newOwner || newOwner.role !== Role.EMPLOYEE) {
+      throw new BadRequestException(
+        'Анкету можно закрепить только за ответственным за скоринг!',
+      );
+    }
+
+    if (newOwner.id === questionnaire.employeeId) {
+      return this.getQuestionnaire(questionnaireId);
+    }
+
+    await this.prismaService.questionnaire.update({
+      where: { id: questionnaireId },
+      data: { employeeId: newOwner.id },
+    });
+
+    await this.activityLogService.log(
+      questionnaireId,
+      'OWNER_CHANGED',
+      `Ответственный за анкету изменён: ${questionnaire.employee.name} → ${newOwner.name}`,
+    );
+
+    return this.getQuestionnaire(questionnaireId);
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_9AM)
   async checkDeadlines() {
     const now = new Date();
@@ -493,34 +531,29 @@ export class QuestionnaireService {
           deadlineAt: { lte: now },
           deadlineNotifiedAt: null,
         },
-        include: { company: true },
+        include: { company: true, employee: OWNER_SELECT },
       });
 
     if (overdueQuestionnaires.length === 0) {
       return;
     }
 
-    const auditorEmails = await this.usersService.getAuditorEmails();
-
     for (const questionnaire of overdueQuestionnaires) {
-      for (const email of auditorEmails) {
-        // Сбой на одном адресе не должен прерывать рассылку остальным
-        // аудиторам и мешать пометке анкеты как уведомлённой.
-        try {
-          await this.notificationsService.sendMail(
-            email,
-            'Просрочен дедлайн дозаполнения анкеты',
-            `
+      // Сбой отправки не должен мешать пометке анкеты как уведомлённой.
+      try {
+        await this.notificationsService.sendMail(
+          questionnaire.employee.email,
+          'Просрочен дедлайн дозаполнения анкеты',
+          `
           <p>У компании «${questionnaire.company.name}» истёк срок дозаполнения анкеты (дедлайн: ${questionnaire.deadlineAt?.toLocaleDateString('ru-RU')}).</p>
           <p>Требуется проверка в системе анкетирования.</p>
           `,
-          );
-        } catch (err) {
-          this.logger.error(
-            `Не удалось уведомить аудитора ${email} о просроченном дедлайне анкеты ${questionnaire.id}`,
-            err instanceof Error ? err.stack : String(err),
-          );
-        }
+        );
+      } catch (err) {
+        this.logger.error(
+          `Не удалось уведомить ответственного ${questionnaire.employee.email} о просроченном дедлайне анкеты ${questionnaire.id}`,
+          err instanceof Error ? err.stack : String(err),
+        );
       }
 
       await this.prismaService.questionnaire.update({
@@ -543,7 +576,7 @@ export class QuestionnaireService {
         },
         include: {
           company: true,
-          employee: true,
+          employee: OWNER_SELECT,
         },
       });
 

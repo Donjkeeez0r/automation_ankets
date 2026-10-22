@@ -9,6 +9,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import bcrypt from 'bcrypt';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { Role } from '../generated/prisma';
+
+const USER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  organization: true,
+  role: true,
+  createdAt: true,
+} as const;
 
 @Injectable()
 export class UsersService {
@@ -16,6 +26,26 @@ export class UsersService {
 
   private generatePassword(): string {
     return randomBytes(6).toString('base64').slice(0, 10);
+  }
+
+  private async countAdmins() {
+    return this.prismaService.user.count({ where: { role: Role.ADMIN } });
+  }
+
+  private async countQuestionnaires(userId: string) {
+    return this.prismaService.questionnaire.count({
+      where: { employeeId: userId },
+    });
+  }
+
+  private async getUserOrThrow(id: string) {
+    const user = await this.prismaService.user.findUnique({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден!');
+    }
+
+    return user;
   }
 
   async createByAdmin(dto: CreateUserDto) {
@@ -36,47 +66,106 @@ export class UsersService {
         role: dto.role,
         password: hashedPassword,
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
-      },
+      select: USER_SELECT,
     });
 
     return { ...user, generatedPassword };
   }
 
   async findAll() {
-    return this.prismaService.user.findMany({
+    const users = await this.prismaService.user.findMany({
       select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
+        ...USER_SELECT,
+        _count: { select: { employeeQuestionnaires: true } },
       },
+    });
+
+    return users.map(({ _count, ...user }) => ({
+      ...user,
+      questionnaireCount: _count.employeeQuestionnaires,
+    }));
+  }
+
+  async remove(id: string, currentUserId: string) {
+    if (id === currentUserId) {
+      throw new BadRequestException(
+        'Нельзя удалить собственную учётную запись!',
+      );
+    }
+
+    const user = await this.getUserOrThrow(id);
+
+    if (user.role === Role.ADMIN && (await this.countAdmins()) <= 1) {
+      throw new BadRequestException(
+        'Нельзя удалить последнего администратора!',
+      );
+    }
+
+    // Анкеты не удаляются вместе с пользователем (onDelete: Restrict) —
+    // сначала их нужно передать другому ответственному.
+    const questionnaireCount = await this.countQuestionnaires(id);
+    if (questionnaireCount > 0) {
+      throw new BadRequestException(
+        `За пользователем закреплено анкет: ${questionnaireCount}. Передайте их другому ответственному за скоринг перед удалением.`,
+      );
+    }
+
+    return this.prismaService.user.delete({
+      where: { id },
+      select: USER_SELECT,
     });
   }
 
-  async remove(id: string) {
-    return this.prismaService.user.delete({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
-      },
+  // Передать все анкеты пользователя другому ответственному за скоринг
+  // (например, перед удалением учётной записи сотрудника).
+  async transferQuestionnaires(fromUserId: string, toUserId: string) {
+    if (fromUserId === toUserId) {
+      throw new BadRequestException('Выберите другого ответственного!');
+    }
+
+    const from = await this.getUserOrThrow(fromUserId);
+    const to = await this.prismaService.user.findUnique({
+      where: { id: toUserId },
     });
+
+    if (!to || to.role !== Role.EMPLOYEE) {
+      throw new BadRequestException(
+        'Анкеты можно передать только ответственному за скоринг!',
+      );
+    }
+
+    // Передача и записи в историю — одной транзакцией. В updateMany повторяем
+    // условие employeeId: анкета, которую за это время передали кому-то ещё,
+    // не будет перехвачена.
+    const transferred = await this.prismaService.$transaction(async (tx) => {
+      const questionnaires = await tx.questionnaire.findMany({
+        where: { employeeId: fromUserId },
+        select: { id: true },
+      });
+      const ids = questionnaires.map((q) => q.id);
+
+      await tx.questionnaire.updateMany({
+        where: { id: { in: ids }, employeeId: fromUserId },
+        data: { employeeId: toUserId },
+      });
+
+      await tx.activityLog.createMany({
+        data: ids.map((questionnaireId) => ({
+          questionnaireId,
+          type: 'OWNER_CHANGED',
+          description: `Ответственный за анкету изменён: ${from.name} → ${to.name}`,
+        })),
+      });
+
+      return ids.length;
+    });
+
+    return { transferred };
   }
 
   async resetPassword(id: string) {
+    await this.getUserOrThrow(id);
+
     const generatedPassword = this.generatePassword();
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
@@ -88,24 +177,41 @@ export class UsersService {
     return { generatedPassword };
   }
 
-  async update(id: string, dto: UpdateUserDto) {
-    const user = await this.prismaService.user.findUnique({ where: { id } });
+  async update(id: string, dto: UpdateUserDto, currentUserId: string) {
+    const user = await this.getUserOrThrow(id);
 
-    if (!user) {
-      throw new NotFoundException('Пользователь не найден!');
+    if (dto.email && dto.email !== user.email) {
+      const existing = await this.findByEmail(dto.email);
+      if (existing) {
+        throw new BadRequestException('Данный email уже занят!');
+      }
+    }
+
+    if (dto.role && dto.role !== user.role) {
+      if (id === currentUserId) {
+        throw new BadRequestException('Нельзя изменить собственную роль!');
+      }
+
+      if (user.role === Role.ADMIN && (await this.countAdmins()) <= 1) {
+        throw new BadRequestException(
+          'Нельзя изменить роль последнего администратора!',
+        );
+      }
+
+      // Администратор не работает с анкетами, поэтому закреплённые анкеты
+      // сначала нужно передать другому ответственному.
+      const questionnaireCount = await this.countQuestionnaires(id);
+      if (questionnaireCount > 0) {
+        throw new BadRequestException(
+          `За пользователем закреплено анкет: ${questionnaireCount}. Передайте их другому ответственному за скоринг перед сменой роли.`,
+        );
+      }
     }
 
     return this.prismaService.user.update({
       where: { id },
       data: dto,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
-      },
+      select: USER_SELECT,
     });
   }
 
@@ -120,14 +226,7 @@ export class UsersService {
   async getMe(userId: string) {
     return this.prismaService.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        organization: true,
-        role: true,
-        createdAt: true,
-      },
+      select: USER_SELECT,
     });
   }
 
@@ -154,13 +253,5 @@ export class UsersService {
     });
 
     return { message: 'Пароль изменен!' };
-  }
-
-  async getAuditorEmails() {
-    const auditors = await this.prismaService.user.findMany({
-      where: { role: 'EMPLOYEE' },
-      select: { email: true },
-    });
-    return auditors.map((a) => a.email);
   }
 }

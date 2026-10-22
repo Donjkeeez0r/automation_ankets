@@ -4,15 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import type { Role } from '../types';
 
 interface LayoutProps {
-  requiredRole?: Role;
+  // Роли, которым доступны вложенные маршруты; не задано — любая авторизованная
+  allowedRoles?: Role[];
 }
 
-export default function Layout({ requiredRole }: LayoutProps) {
+export default function Layout({ allowedRoles }: LayoutProps) {
   const { isAuthenticated, user } = useAuth();
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (requiredRole && user?.role !== requiredRole)
+  if (allowedRoles && (!user || !allowedRoles.includes(user.role)))
     return <Navigate to="/" replace />;
 
   return (

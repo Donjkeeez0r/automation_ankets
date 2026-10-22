@@ -5,7 +5,9 @@ import {
   updateUser,
   deleteUser,
   resetPassword,
+  transferQuestionnaires,
 } from '../../api/users';
+import { useAuth } from '../../context/AuthContext';
 import SearchInput from '../../components/SearchInput';
 import FilterChips, { type FilterChip } from '../../components/FilterChips';
 import Pagination from '../../components/Pagination';
@@ -78,12 +80,126 @@ function PasswordModal({
   );
 }
 
+// Передача всех анкет пользователя другому ответственному за скоринг.
+// С deleteAfter=true после передачи пользователь удаляется.
+function TransferModal({
+  user,
+  users,
+  deleteAfter,
+  onClose,
+  onDone,
+}: {
+  user: ManagedUser;
+  users: ManagedUser[];
+  deleteAfter: boolean;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const candidates = users.filter((u) => u.role === 'EMPLOYEE' && u.id !== user.id);
+  const [toUserId, setToUserId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!toUserId) return;
+    setSaving(true);
+    setError('');
+    try {
+      await transferQuestionnaires(user.id, toUserId);
+    } catch (err) {
+      setError(errorMessage(err, 'Не удалось передать анкеты'));
+      setSaving(false);
+      return;
+    }
+    if (deleteAfter) {
+      try {
+        await deleteUser(user.id);
+      } catch (err) {
+        // Анкеты уже переданы — обновляем список и сообщаем, что удаление не прошло
+        onDone();
+        alert(
+          `Анкеты переданы, но удалить пользователя не удалось: ${errorMessage(err, 'неизвестная ошибка')}`,
+        );
+        return;
+      }
+    }
+    onDone();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 w-full max-w-md">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">
+          {deleteAfter ? 'Удалить пользователя' : 'Передать анкеты'}
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          За пользователем {user.name} закреплено анкет: {user.questionnaireCount ?? 0}.
+          {deleteAfter
+            ? ' Перед удалением передайте их другому ответственному за скоринг.'
+            : ' Выберите, кому их передать.'}
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <select
+            value={toUserId}
+            onChange={(e) => setToUserId(e.target.value)}
+            aria-label="Новый ответственный"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">
+              {candidates.length === 0
+                ? 'Нет других ответственных за скоринг'
+                : 'Выберите ответственного'}
+            </option>
+            {candidates.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !toUserId}
+              className={`px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors ${
+                deleteAfter ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {saving
+                ? 'Выполняется...'
+                : deleteAfter
+                  ? 'Передать и удалить'
+                  : 'Передать'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function EditModal({
   user,
+  isSelf,
   onClose,
   onSaved,
 }: {
   user: ManagedUser;
+  // Собственную роль менять нельзя — иначе можно остаться без администратора
+  isSelf: boolean;
   onClose: () => void;
   onSaved: (u: ManagedUser) => void;
 }) {
@@ -102,7 +218,7 @@ function EditModal({
     setError('');
     try {
       const { data } = await updateUser(user.id, form);
-      onSaved(data);
+      onSaved({ ...data, questionnaireCount: user.questionnaireCount });
     } catch (err) {
       setError(errorMessage(err, 'Не удалось сохранить'));
     } finally {
@@ -139,7 +255,8 @@ function EditModal({
           <select
             value={form.role}
             onChange={(e) => setForm((p) => ({ ...p, role: e.target.value as Role }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isSelf}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
           >
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -147,6 +264,9 @@ function EditModal({
               </option>
             ))}
           </select>
+          {isSelf && (
+            <p className="text-xs text-gray-500">Собственную роль изменить нельзя.</p>
+          )}
 
           {error && (
             <div className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
@@ -175,6 +295,12 @@ function EditModal({
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
+  const [transfer, setTransfer] = useState<{
+    user: ManagedUser;
+    deleteAfter: boolean;
+  } | null>(null);
+
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -215,12 +341,17 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (user: ManagedUser) => {
+    // Анкеты не удаляются вместе с пользователем — сначала передаём их
+    if ((user.questionnaireCount ?? 0) > 0) {
+      setTransfer({ user, deleteAfter: true });
+      return;
+    }
     if (!confirm(`Удалить пользователя ${user.name}?`)) return;
     try {
       await deleteUser(user.id);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    } catch {
-      alert('Не удалось удалить пользователя');
+    } catch (err) {
+      alert(errorMessage(err, 'Не удалось удалить пользователя'));
     }
   };
 
@@ -347,16 +478,26 @@ export default function UsersPage() {
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Имя</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Организация</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Роль</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Анкет</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {pageItems.map((u) => (
+              {pageItems.map((u) => {
+                const isSelf = u.id === currentUser?.userId;
+                const count = u.questionnaireCount ?? 0;
+                return (
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-gray-700">{u.email}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{u.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {u.name}
+                    {isSelf && <span className="ml-1 text-xs font-normal text-blue-600">(вы)</span>}
+                  </td>
                   <td className="px-6 py-4 text-gray-500">{u.organization}</td>
                   <td className="px-6 py-4 text-gray-500">{ROLE_LABELS[u.role]}</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {u.role === 'EMPLOYEE' || count > 0 ? count : '—'}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-3 whitespace-nowrap">
                       <button
@@ -371,16 +512,27 @@ export default function UsersPage() {
                       >
                         Сбросить пароль
                       </button>
-                      <button
-                        onClick={() => handleDelete(u)}
-                        className="text-red-600 hover:underline font-medium"
-                      >
-                        Удалить
-                      </button>
+                      {count > 0 && (
+                        <button
+                          onClick={() => setTransfer({ user: u, deleteAfter: false })}
+                          className="text-gray-600 hover:underline font-medium"
+                        >
+                          Передать анкеты
+                        </button>
+                      )}
+                      {!isSelf && (
+                        <button
+                          onClick={() => handleDelete(u)}
+                          className="text-red-600 hover:underline font-medium"
+                        >
+                          Удалить
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -394,9 +546,22 @@ export default function UsersPage() {
           onClose={() => setGeneratedPassword(null)}
         />
       )}
+      {transfer && (
+        <TransferModal
+          user={transfer.user}
+          users={users}
+          deleteAfter={transfer.deleteAfter}
+          onClose={() => setTransfer(null)}
+          onDone={() => {
+            setTransfer(null);
+            load();
+          }}
+        />
+      )}
       {editing && (
         <EditModal
           user={editing}
+          isSelf={editing.id === currentUser?.userId}
           onClose={() => setEditing(null)}
           onSaved={(updated) => {
             setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));

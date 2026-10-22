@@ -32,5 +32,11 @@ export const updateUser = (
 
 export const deleteUser = (id: string) => api.delete(`/users/${id}`);
 
+// Передать все анкеты пользователя другому ответственному за скоринг
+export const transferQuestionnaires = (id: string, toUserId: string) =>
+  api.post<{ transferred: number }>(`/users/${id}/transfer-questionnaires`, {
+    toUserId,
+  });
+
 export const resetPassword = (id: string) =>
   api.post<{ generatedPassword: string }>(`/users/${id}/reset-password`);

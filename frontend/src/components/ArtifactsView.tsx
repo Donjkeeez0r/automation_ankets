@@ -8,7 +8,14 @@ import {
 } from '../api/artifacts';
 import type { Artifact } from '../types';
 
-export default function ArtifactsView({ questionnaireId }: { questionnaireId: string }) {
+export default function ArtifactsView({
+  questionnaireId,
+  canUpload,
+}: {
+  questionnaireId: string;
+  // Загружать гарантийное письмо может только закреплённый за анкетой ответственный
+  canUpload: boolean;
+}) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -58,7 +65,7 @@ export default function ArtifactsView({ questionnaireId }: { questionnaireId: st
     }
   };
 
-  const uploadPanel = (
+  const uploadPanel = canUpload && (
     <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-0">

@@ -19,7 +19,7 @@ export const getQuestionnaire = (id: string) =>
 export const getAllQuestions = () =>
   api.get<Question[]>('/questionnaire/questions');
 
-// EMPLOYEE: изменить признак обязательности вопроса
+// ADMIN: изменить признак обязательности вопроса в общем банке вопросов
 export const updateQuestionRequired = (id: string, required: boolean) =>
   api.patch<Question>(`/questionnaire/questions/${id}`, { required });
 
@@ -62,9 +62,13 @@ export const setQuestionOverrides = (
     overrides,
   });
 
-// EMPLOYEE: удалить анкету со всей историей
+// Закреплённый EMPLOYEE или ADMIN: удалить анкету со всей историей
 export const deleteQuestionnaire = (id: string) =>
   api.delete(`/questionnaire/${id}`);
+
+// ADMIN: закрепить анкету за другим ответственным за скоринг
+export const changeQuestionnaireOwner = (id: string, employeeId: string) =>
+  api.patch<Questionnaire>(`/questionnaire/${id}/owner`, { employeeId });
 
 // EMPLOYEE: PDF с рекомендациями. Эндпоинт под JWT, поэтому
 // простой <a href> не подойдёт — тянем файл через axios как blob.

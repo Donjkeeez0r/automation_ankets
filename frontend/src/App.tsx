@@ -35,12 +35,15 @@ export default function App() {
           </Route>
 
           {/* ADMIN — управление пользователями */}
-          <Route element={<Layout requiredRole="ADMIN" />}>
+          <Route element={<Layout allowedRoles={['ADMIN']} />}>
             <Route path="/users" element={<UsersPage />} />
           </Route>
 
-          {/* EMPLOYEE — компании, вопросы анкеты и проверка анкет */}
-          <Route element={<Layout requiredRole="EMPLOYEE" />}>
+          {/* Обе роли. Что именно можно менять на этих страницах, решают
+              права конкретной роли (lib/permissions.ts, docs/ROLES.md):
+              ADMIN — банк вопросов, удаление и передача анкет, просмотр остального;
+              EMPLOYEE — работа со своими анкетами, просмотр чужих. */}
+          <Route element={<Layout allowedRoles={['ADMIN', 'EMPLOYEE']} />}>
             <Route path="/companies" element={<CompaniesPage />} />
             {/* Глубокая ссылка на конкретную компанию: тот же список,
                 но нужная карточка раскрыта и подсвечена */}

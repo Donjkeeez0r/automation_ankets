@@ -5,7 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ScoringModule } from '../scoring/scoring.module';
 import { LinksModule } from '../links/links.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { UsersModule } from '../users/users.module';
+import { AccessModule } from '../access/access.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { MaturityController } from '../maturity/maturity.controller';
 import { MaturityService } from '../maturity/maturity.service';
@@ -17,7 +17,7 @@ import { MaturityService } from '../maturity/maturity.service';
     ActivityLogModule,
     ScoringModule,
     forwardRef(() => LinksModule),
-    UsersModule,
+    AccessModule,
     NotificationsModule,
   ],
   controllers: [QuestionnaireController, MaturityController],

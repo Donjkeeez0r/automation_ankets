@@ -40,6 +40,7 @@ export class CompaniesService {
       where: { companyId },
       orderBy: { createdAt: 'desc' },
       include: {
+        employee: { select: { id: true, name: true } },
         links: {
           orderBy: { createdAt: 'desc' },
           select: {

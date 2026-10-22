@@ -9,8 +9,16 @@ import {
   downloadRecommendationsPdf,
   sendRecommendations,
   parseContentDispositionFileName,
+  changeQuestionnaireOwner,
 } from '../../api/questionnaire';
+import { getUsers } from '../../api/users';
 import { saveBlobAs } from '../../api/artifacts';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canDeleteQuestionnaire,
+  canEditQuestionnaire,
+  isAdmin,
+} from '../../lib/permissions';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AnswersView from '../../components/AnswersView';
@@ -20,11 +28,95 @@ import ArtifactsView from '../../components/ArtifactsView';
 import ActivityLogView from '../../components/ActivityLogView';
 import Tooltip from '../../components/Tooltip';
 import type {
+  ManagedUser,
   Questionnaire,
   ScoringResult,
   Recommendation,
   Status,
 } from '../../types';
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data
+    ?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  return msg ?? fallback;
+}
+
+// ADMIN: закрепить анкету за другим ответственным за скоринг
+function OwnerTransferPanel({
+  questionnaire,
+  onChanged,
+}: {
+  questionnaire: Questionnaire;
+  onChanged: (q: Questionnaire) => void;
+}) {
+  const [employees, setEmployees] = useState<ManagedUser[]>([]);
+  const [selected, setSelected] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    getUsers()
+      .then((r) => setEmployees(r.data.filter((u) => u.role === 'EMPLOYEE')))
+      .catch(() => setError('Не удалось загрузить список ответственных'));
+  }, []);
+
+  const candidates = employees.filter((u) => u.id !== questionnaire.employeeId);
+
+  const handleTransfer = async () => {
+    if (!selected) return;
+    setSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const { data } = await changeQuestionnaireOwner(questionnaire.id, selected);
+      onChanged(data);
+      setSelected('');
+      setSuccess('Анкета передана');
+    } catch (err) {
+      setError(errorMessage(err, 'Не удалось передать анкету'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+      <h3 className="text-sm font-semibold text-gray-800 mb-1">Ответственный за анкету</h3>
+      <p className="text-xs text-gray-500 mb-3">
+        Работать с анкетой может только закреплённый за ней ответственный за скоринг.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          disabled={saving || candidates.length === 0}
+          aria-label="Новый ответственный"
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        >
+          <option value="">
+            {candidates.length === 0 ? 'Нет других ответственных' : 'Выберите ответственного'}
+          </option>
+          {candidates.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name} ({u.email})
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={handleTransfer}
+          disabled={saving || !selected}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Передача...' : 'Передать анкету'}
+        </button>
+      </div>
+      {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+      {success && <div className="mt-2 text-sm text-emerald-700">{success}</div>}
+    </div>
+  );
+}
 
 type Tab = 'answers' | 'scoring' | 'recommendations' | 'files' | 'history';
 
@@ -39,6 +131,7 @@ const TABS: { key: Tab; label: string }[] = [
 export default function QuestionnaireReviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
   const [scoring, setScoring] = useState<ScoringResult | null>(null);
@@ -163,11 +256,13 @@ export default function QuestionnaireReviewPage() {
         comment.trim() || undefined,
         deadlineAt,
       );
-      setQuestionnaire(data);
+      // Ответ без связей (компания, ответы, ответственный) — дополняем текущую анкету
+      setQuestionnaire((prev) => (prev ? { ...prev, ...data } : data));
       setComment('');
       setDeadline('');
-    } catch {
-      setActionError('Не удалось изменить статус');
+      setHistoryKey((k) => k + 1);
+    } catch (err) {
+      setActionError(errorMessage(err, 'Не удалось изменить статус'));
     } finally {
       setUpdating(false);
     }
@@ -180,8 +275,8 @@ export default function QuestionnaireReviewPage() {
     try {
       await deleteQuestionnaire(id);
       navigate('/questionnaires', { replace: true });
-    } catch {
-      setDeleteError('Не удалось удалить анкету');
+    } catch (err) {
+      setDeleteError(errorMessage(err, 'Не удалось удалить анкету'));
       setDeleting(false);
     }
   };
@@ -190,7 +285,10 @@ export default function QuestionnaireReviewPage() {
   if (error) return <div className="text-sm text-red-600">{error}</div>;
   if (!questionnaire) return null;
 
-  const canDecide = questionnaire.status !== 'DRAFT';
+  const canEdit = canEditQuestionnaire(user, questionnaire);
+  const canDelete = canDeleteQuestionnaire(user, questionnaire);
+  const canDecide = canEdit && questionnaire.status !== 'DRAFT';
+  const ownerName = questionnaire.employee?.name ?? '—';
 
   return (
     <div className="max-w-4xl">
@@ -221,6 +319,10 @@ export default function QuestionnaireReviewPage() {
                 }`
               : 'Аноним'}
           </p>
+          <p className="text-sm text-gray-500">
+            Ответственный за скоринг: {ownerName}
+            {canEdit && ' (вы)'}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <StatusBadge status={questionnaire.status} />
@@ -233,18 +335,38 @@ export default function QuestionnaireReviewPage() {
             </div>
           )}
         </div>
-        <Tooltip
-          className="shrink-0"
-          text="Анкета будет удалена безвозвратно вместе со всеми ответами и файлами"
-        >
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+        {canDelete && (
+          <Tooltip
+            className="shrink-0"
+            text="Анкета будет удалена безвозвратно вместе со всеми ответами и файлами"
           >
-            Удалить
-          </button>
-        </Tooltip>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="px-3 py-1.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+            >
+              Удалить
+            </button>
+          </Tooltip>
+        )}
       </div>
+
+      {!canEdit && (
+        <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+          <span className="font-medium">Режим просмотра.</span> Принимать решение,
+          отправлять рекомендации и загружать файлы может только ответственный за
+          анкету — {ownerName}.
+        </div>
+      )}
+
+      {isAdmin(user) && (
+        <OwnerTransferPanel
+          questionnaire={questionnaire}
+          onChanged={(data) => {
+            setQuestionnaire((prev) => (prev ? { ...prev, ...data } : data));
+            setHistoryKey((k) => k + 1);
+          }}
+        />
+      )}
 
       {questionnaire.comment && (
         <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
@@ -360,17 +482,19 @@ export default function QuestionnaireReviewPage() {
                     {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
                   </button>
                 </Tooltip>
-                <Tooltip text="Отправить рекомендации на email компании">
-                  <button
-                    onClick={handleSendRecommendations}
-                    disabled={sendingRecommendations}
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {sendingRecommendations
-                      ? 'Отправка...'
-                      : 'Направить рекомендации'}
-                  </button>
-                </Tooltip>
+                {canEdit && (
+                  <Tooltip text="Отправить рекомендации на email компании">
+                    <button
+                      onClick={handleSendRecommendations}
+                      disabled={sendingRecommendations}
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {sendingRecommendations
+                        ? 'Отправка...'
+                        : 'Направить рекомендации'}
+                    </button>
+                  </Tooltip>
+                )}
               </div>
             </div>
             {sendSuccess && (
@@ -386,7 +510,9 @@ export default function QuestionnaireReviewPage() {
           </div>
         ))}
 
-      {tab === 'files' && <ArtifactsView questionnaireId={questionnaire.id} />}
+      {tab === 'files' && (
+        <ArtifactsView questionnaireId={questionnaire.id} canUpload={canEdit} />
+      )}
 
       {tab === 'history' && (
         <ActivityLogView key={historyKey} questionnaireId={questionnaire.id} />

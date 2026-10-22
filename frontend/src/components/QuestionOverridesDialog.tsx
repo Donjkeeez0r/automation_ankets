@@ -58,12 +58,15 @@ function RequiredToggle({
 interface QuestionOverridesDialogProps {
   open: boolean;
   questionnaireId: string;
+  // Чужая анкета: настройки видны, но изменить их нельзя
+  readOnly?: boolean;
   onClose: () => void;
 }
 
 export default function QuestionOverridesDialog({
   open,
   questionnaireId,
+  readOnly = false,
   onClose,
 }: QuestionOverridesDialogProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -167,8 +170,9 @@ export default function QuestionOverridesDialog({
             Обязательность вопросов для этой анкеты
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Изменения применяются только к этой анкете и не затрагивают общие
-            настройки на странице «Вопросы анкеты».
+            {readOnly
+              ? 'Только просмотр: изменять настройки может ответственный, за которым закреплена анкета.'
+              : 'Изменения применяются только к этой анкете и не затрагивают общий шаблон анкеты.'}
           </p>
         </div>
 
@@ -212,7 +216,7 @@ export default function QuestionOverridesDialog({
                             <span className="text-xs text-gray-500">Обязательный</span>
                             <RequiredToggle
                               checked={values[q.id]}
-                              disabled={saving}
+                              disabled={saving || readOnly}
                               onChange={() =>
                                 setValues((prev) => ({ ...prev, [q.id]: !prev[q.id] }))
                               }
@@ -230,7 +234,7 @@ export default function QuestionOverridesDialog({
 
         <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-between gap-3">
           <span className="text-xs text-gray-500">
-            {loading
+            {loading || readOnly
               ? ''
               : changedIds.length === 0
                 ? 'Несохранённых изменений нет'
@@ -243,15 +247,17 @@ export default function QuestionOverridesDialog({
               disabled={saving}
               className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              Отмена
+              {readOnly ? 'Закрыть' : 'Отмена'}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || loading || changedIds.length === 0}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {saving ? 'Сохранение...' : 'Сохранить'}
-            </button>
+            {!readOnly && (
+              <button
+                onClick={handleSave}
+                disabled={saving || loading || changedIds.length === 0}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            )}
           </div>
         </div>
       </div>

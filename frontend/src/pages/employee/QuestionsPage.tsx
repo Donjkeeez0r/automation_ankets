@@ -5,6 +5,8 @@ import FilterChips, { type FilterChip } from '../../components/FilterChips';
 import Pagination from '../../components/Pagination';
 import { usePagination } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
+import { useAuth } from '../../context/AuthContext';
+import { isAdmin } from '../../lib/permissions';
 import type { Question } from '../../types';
 
 type RequiredFilter = 'ALL' | 'REQUIRED' | 'OPTIONAL';
@@ -58,6 +60,11 @@ function RequiredToggle({
 }
 
 export default function QuestionsPage() {
+  // Общий банк вопросов меняет только администратор; ответственный за скоринг
+  // видит его в режиме чтения и настраивает обязательность в своих анкетах.
+  const { user } = useAuth();
+  const canEdit = isAdmin(user);
+
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -145,7 +152,9 @@ export default function QuestionsPage() {
         </div>
         <h1 className="text-xl font-bold text-gray-900">Вопросы анкеты</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Отметьте, какие вопросы обязательны для заполнения подрядчиком.
+          {canEdit
+            ? 'Отметьте, какие вопросы обязательны для заполнения подрядчиком по умолчанию.'
+            : 'Общий шаблон анкеты (только просмотр). Изменить обязательность вопросов для своей анкеты можно на странице «Компании».'}
         </p>
       </div>
 
@@ -198,21 +207,33 @@ export default function QuestionsPage() {
                       <span className="font-medium text-gray-400 mr-2">{q.code}</span>
                       {q.text}
                     </p>
-                    <div className="shrink-0 flex items-center gap-2 pt-0.5">
-                      <span className="text-xs text-gray-500">Обязательный</span>
-                      <RequiredToggle
-                        checked={q.required}
-                        disabled={savingIds[q.id]}
-                        onChange={() => toggleRequired(q)}
-                      />
-                      <span className="w-20 text-[11px]">
-                        {savingIds[q.id] ? (
-                          <span className="text-gray-400">Сохранение...</span>
-                        ) : errorIds[q.id] ? (
-                          <span className="text-red-600">Ошибка</span>
-                        ) : null}
+                    {canEdit ? (
+                      <div className="shrink-0 flex items-center gap-2 pt-0.5">
+                        <span className="text-xs text-gray-500">Обязательный</span>
+                        <RequiredToggle
+                          checked={q.required}
+                          disabled={savingIds[q.id]}
+                          onChange={() => toggleRequired(q)}
+                        />
+                        <span className="w-20 text-[11px]">
+                          {savingIds[q.id] ? (
+                            <span className="text-gray-400">Сохранение...</span>
+                          ) : errorIds[q.id] ? (
+                            <span className="text-red-600">Ошибка</span>
+                          ) : null}
+                        </span>
+                      </div>
+                    ) : (
+                      <span
+                        className={`shrink-0 mt-0.5 text-[11px] font-medium px-2 py-0.5 rounded ${
+                          q.required
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {q.required ? 'Обязательный' : 'Необязательный'}
                       </span>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>

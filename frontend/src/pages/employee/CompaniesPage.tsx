@@ -22,6 +22,8 @@ import SearchInput from '../../components/SearchInput';
 import Pagination from '../../components/Pagination';
 import { usePagination, PAGE_SIZE } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
+import { useAuth } from '../../context/AuthContext';
+import { canEditQuestionnaire, isAdmin, isEmployee } from '../../lib/permissions';
 import type {
   Company,
   CompanyQuestionnaire,
@@ -296,14 +298,19 @@ function CompanyCard({
   onRequestDelete,
   onUpdated,
 }: CompanyCardProps) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [questionnaires, setQuestionnaires] = useState<CompanyQuestionnaire[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  // id анкеты, для которой открыто окно настройки обязательности вопросов
-  const [overridesFor, setOverridesFor] = useState<string | null>(null);
+  // Анкета, для которой открыто окно обязательности вопросов
+  // (readOnly — чужая анкета, настройки только для просмотра)
+  const [overridesFor, setOverridesFor] = useState<{
+    id: string;
+    readOnly: boolean;
+  } | null>(null);
   // Анкета, для которой открыт попап выбора срока заполнения перед генерацией ОЛ
   const [linkFor, setLinkFor] = useState<string | null>(null);
   const [fillDays, setFillDays] = useState(String(DEFAULT_FILL_DAYS));
@@ -404,24 +411,31 @@ function CompanyCard({
               Редактировать
             </button>
           </Tooltip>
-          <button
-            onClick={handleCreateQuestionnaire}
-            disabled={busy}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {busy ? '...' : 'Создать анкету'}
-          </button>
-          {/* Разрушительное действие отделено от «Создать анкету»:
-              кнопки соседствуют, а промах стоит дорого. */}
-          <span aria-hidden="true" className="w-px self-stretch bg-gray-200 mx-1" />
-          <Tooltip text="Компания и все её анкеты будут удалены безвозвратно">
+          {/* Анкету создаёт ответственный за скоринг — она закрепляется за ним */}
+          {isEmployee(user) && (
             <button
-              onClick={() => onRequestDelete(company)}
-              className="px-4 py-2 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+              onClick={handleCreateQuestionnaire}
+              disabled={busy}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              Удалить
+              {busy ? '...' : 'Создать анкету'}
             </button>
-          </Tooltip>
+          )}
+          {/* Удаление компании стирает анкеты всех ответственных — только администратор.
+              Разрушительное действие отделено от остальных кнопок. */}
+          {isAdmin(user) && (
+            <>
+              <span aria-hidden="true" className="w-px self-stretch bg-gray-200 mx-1" />
+              <Tooltip text="Компания и все её анкеты будут удалены безвозвратно">
+                <button
+                  onClick={() => onRequestDelete(company)}
+                  className="px-4 py-2 border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                >
+                  Удалить
+                </button>
+              </Tooltip>
+            </>
+          )}
         </div>
       </div>
 
@@ -433,17 +447,24 @@ function CompanyCard({
             <div className="text-xs text-gray-500">Загрузка анкет...</div>
           ) : questionnaires.length === 0 ? (
             <div className="text-xs text-gray-500">
-              У компании пока нет анкет. Нажмите «Создать анкету».
+              У компании пока нет анкет.
+              {isEmployee(user) && ' Нажмите «Создать анкету».'}
             </div>
           ) : (
             <div className="space-y-3">
-              {questionnaires.map((q) => (
+              {questionnaires.map((q) => {
+                const mine = canEditQuestionnaire(user, q);
+                return (
                 <div key={q.id} className="border border-gray-100 rounded-lg p-3">
                   <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <StatusBadge status={q.status} />
                       <span className="text-xs text-gray-400">
                         от {new Date(q.createdAt).toLocaleDateString('ru-RU')}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate">
+                        Ответственный: {q.employee?.name ?? '—'}
+                        {mine && ' (вы)'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -453,27 +474,35 @@ function CompanyCard({
                       >
                         Открыть анкету
                       </Link>
-                      <Tooltip text="Изменить, какие вопросы обязательны именно для этой анкеты">
+                      <Tooltip
+                        text={
+                          mine
+                            ? 'Изменить, какие вопросы обязательны именно для этой анкеты'
+                            : 'Посмотреть, какие вопросы обязательны для этой анкеты'
+                        }
+                      >
                         <button
-                          onClick={() => setOverridesFor(q.id)}
+                          onClick={() => setOverridesFor({ id: q.id, readOnly: !mine })}
                           disabled={busy}
                           className="px-3 py-1.5 border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
                         >
-                          Настроить обязательность вопросов
+                          {mine ? 'Настроить обязательность вопросов' : 'Обязательность вопросов'}
                         </button>
                       </Tooltip>
-                      <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
-                        <button
-                          onClick={() => {
-                            setFillDays(String(DEFAULT_FILL_DAYS));
-                            setLinkFor(q.id);
-                          }}
-                          disabled={busy}
-                          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                        >
-                          Отправить ОЛ
-                        </button>
-                      </Tooltip>
+                      {mine && (
+                        <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
+                          <button
+                            onClick={() => {
+                              setFillDays(String(DEFAULT_FILL_DAYS));
+                              setLinkFor(q.id);
+                            }}
+                            disabled={busy}
+                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                          >
+                            Отправить ОЛ
+                          </button>
+                        </Tooltip>
+                      )}
                     </div>
                   </div>
 
@@ -489,7 +518,8 @@ function CompanyCard({
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -596,7 +626,8 @@ function CompanyCard({
       {overridesFor && (
         <QuestionOverridesDialog
           open
-          questionnaireId={overridesFor}
+          questionnaireId={overridesFor.id}
+          readOnly={overridesFor.readOnly}
           onClose={() => setOverridesFor(null)}
         />
       )}
@@ -695,8 +726,9 @@ export default function CompaniesPage() {
     <div className="max-w-3xl">
       <h1 className="text-xl font-bold text-gray-900">Компании-подрядчики</h1>
       <p className="text-sm text-gray-500 mt-1 mb-6">
-        Здесь вы заводите подрядчиков, создаёте для них анкеты и отправляете
-        одноразовые ссылки на заполнение.
+        Здесь заводятся подрядчики, создаются анкеты и отправляются одноразовые
+        ссылки на заполнение. Работать с анкетой может только закреплённый за ней
+        ответственный за скоринг.
       </p>
 
       {hiddenByFilter && (

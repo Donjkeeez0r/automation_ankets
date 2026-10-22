@@ -7,6 +7,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ArtifactsModule } from '../artifacts/artifacts.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { AccessModule } from '../access/access.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
     ArtifactsModule,
     NotificationsModule,
     CompaniesModule,
+    AccessModule,
   ],
   providers: [LinksService],
   controllers: [LinksController],

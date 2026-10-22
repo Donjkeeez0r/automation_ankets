@@ -43,6 +43,15 @@ export interface ManagedUser {
   organization: string;
   role: Role;
   createdAt: string;
+  // Сколько анкет закреплено за пользователем (только в GET /users)
+  questionnaireCount?: number;
+}
+
+// Ответственный за скоринг, за которым закреплена анкета
+export interface QuestionnaireOwner {
+  id: string;
+  name: string;
+  email?: string;
 }
 
 export interface CreatedUser extends ManagedUser {
@@ -113,6 +122,7 @@ export interface Questionnaire {
   updatedAt: string;
   companyId: string;
   employeeId: string;
+  employee?: QuestionnaireOwner;
   comment?: string | null;
   deadlineAt?: string | null;
   company?: CompanyRef;
@@ -141,6 +151,8 @@ export interface CompanyLink {
 // Анкета компании с её ссылками (GET /companies/:id/questionnaires)
 export interface CompanyQuestionnaire {
   id: string;
+  employeeId: string;
+  employee?: QuestionnaireOwner;
   status: Status;
   createdAt: string;
   updatedAt: string;

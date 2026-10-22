@@ -8,6 +8,12 @@ import FilterChips, { type FilterChip } from '../../components/FilterChips';
 import Pagination from '../../components/Pagination';
 import { usePagination } from '../../lib/pagination';
 import { matchesQuery } from '../../lib/search';
+import { useAuth } from '../../context/AuthContext';
+import {
+  canDeleteQuestionnaire,
+  canEditQuestionnaire,
+  isEmployee,
+} from '../../lib/permissions';
 import type { Questionnaire, Status } from '../../types';
 
 // Группы статусов для чипов: SUBMITTED и IN_REVIEW показываются одинаково
@@ -35,7 +41,12 @@ const STATUS_FILTER_ORDER = Object.keys(STATUS_FILTER_LABELS) as Exclude<
   'ALL'
 >[];
 
+type OwnerFilter = 'ALL' | 'MINE';
+
 export default function QuestionnairesListPage() {
+  const { user } = useAuth();
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('ALL');
+
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -77,12 +88,28 @@ export default function QuestionnairesListPage() {
 
   // Счётчики считаем по всему списку — они не зависят от выбранного чипа,
   // но учитывают поисковый запрос.
+  const mineCount = useMemo(
+    () => questionnaires.filter((q) => canEditQuestionnaire(user, q)).length,
+    [questionnaires, user],
+  );
+
+  const ownerChips: FilterChip<OwnerFilter>[] = [
+    { value: 'ALL', label: 'Все анкеты', count: questionnaires.length },
+    { value: 'MINE', label: 'Мои', count: mineCount },
+  ];
+
   const searched = useMemo(
     () =>
-      questionnaires.filter((q) =>
-        matchesQuery(query, [q.company?.name, q.company?.contactName]),
+      questionnaires.filter(
+        (q) =>
+          (ownerFilter === 'ALL' || canEditQuestionnaire(user, q)) &&
+          matchesQuery(query, [
+            q.company?.name,
+            q.company?.contactName,
+            q.employee?.name,
+          ]),
       ),
-    [questionnaires, query],
+    [questionnaires, query, ownerFilter, user],
   );
 
   const statusChips = useMemo<FilterChip<StatusFilter>[]>(() => {
@@ -112,7 +139,7 @@ export default function QuestionnairesListPage() {
 
   const { page, totalPages, pageItems, setPage } = usePagination(
     visible,
-    `${query}|${statusFilter}|${dateAsc}`,
+    `${query}|${statusFilter}|${dateAsc}|${ownerFilter}`,
   );
 
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
@@ -123,6 +150,7 @@ export default function QuestionnairesListPage() {
       <h1 className="text-xl font-bold text-gray-900">Анкеты</h1>
       <p className="text-sm text-gray-500 mt-1 mb-6">
         Анкеты, заполненные подрядчиками: проверка ответов, скоринг и решение.
+        Чужие анкеты доступны только для просмотра.
       </p>
 
       {questionnaires.length > 0 && (
@@ -130,8 +158,16 @@ export default function QuestionnairesListPage() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Поиск по компании или контакту"
+            placeholder="Поиск по компании, контакту или ответственному"
           />
+          {isEmployee(user) && (
+            <FilterChips
+              options={ownerChips}
+              value={ownerFilter}
+              onChange={setOwnerFilter}
+              label="Фильтр по ответственному"
+            />
+          )}
           <FilterChips
             options={statusChips}
             value={statusFilter}
@@ -156,6 +192,7 @@ export default function QuestionnairesListPage() {
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Компания</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Контакт</th>
+                <th className="text-left px-6 py-3 font-medium text-gray-500">Ответственный</th>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">
                   <button
                     type="button"
@@ -194,6 +231,12 @@ export default function QuestionnairesListPage() {
                     {q.company?.contactName ?? '—'}
                   </td>
                   <td className="px-6 py-4 text-gray-500">
+                    {q.employee?.name ?? '—'}
+                    {canEditQuestionnaire(user, q) && (
+                      <span className="ml-1 text-xs text-blue-600">(вы)</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
                     {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                   </td>
                   <td className="px-6 py-4">
@@ -215,14 +258,18 @@ export default function QuestionnairesListPage() {
                       >
                         Открыть
                       </Link>
-                      {/* Разделитель: удаление необратимо, отделяем от «Открыть» */}
-                      <span aria-hidden="true" className="w-px h-4 bg-gray-200" />
-                      <button
-                        onClick={() => setToDelete(q)}
-                        className="text-gray-500 hover:text-red-600 hover:underline font-medium transition-colors"
-                      >
-                        Удалить
-                      </button>
+                      {canDeleteQuestionnaire(user, q) && (
+                        <>
+                          {/* Разделитель: удаление необратимо, отделяем от «Открыть» */}
+                          <span aria-hidden="true" className="w-px h-4 bg-gray-200" />
+                          <button
+                            onClick={() => setToDelete(q)}
+                            className="text-gray-500 hover:text-red-600 hover:underline font-medium transition-colors"
+                          >
+                            Удалить
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

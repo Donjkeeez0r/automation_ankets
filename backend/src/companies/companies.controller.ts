@@ -18,49 +18,52 @@ import { Role } from '../generated/prisma';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CreateContactorEmployeeDto } from './dto/create-contactor-employee.dto';
 
+// Справочник компаний общий: просматривать, заводить и редактировать компании
+// и их контактных лиц могут обе роли, удалять компанию — только ADMIN.
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('companies')
 export class CompaniesController {
   constructor(private companiesService: CompaniesService) {}
 
   @Post()
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   create(@Body() dto: CreateCompanyDto) {
     return this.companiesService.create(dto);
   }
 
   @Get()
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   findAll() {
     return this.companiesService.findAll();
   }
 
   @Get(':id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
   }
 
   @Get(':id/questionnaires')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   findQuestionnaires(@Param('id') id: string) {
     return this.companiesService.findQuestionnaires(id);
   }
 
+  // Удаляет компанию вместе со всеми анкетами всех ответственных — только ADMIN
   @Delete(':id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN)
   remove(@Param('id') id: string) {
     return this.companiesService.remove(id);
   }
 
   @Patch(':id')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
     return this.companiesService.update(id, dto);
   }
 
   @Post(':id/employees')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   addEmployee(
     @Param('id') companyId: string,
     @Body() dto: CreateContactorEmployeeDto,
@@ -69,13 +72,13 @@ export class CompaniesController {
   }
 
   @Get(':id/employees')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   getEmployees(@Param('id') companyId: string) {
     return this.companiesService.getEmployees(companyId);
   }
 
   @Delete('employees/:employeeId')
-  @Roles(Role.EMPLOYEE)
+  @Roles(Role.ADMIN, Role.EMPLOYEE)
   removeEmployee(@Param('employeeId') employeeId: string) {
     return this.companiesService.removeEmployee(employeeId);
   }

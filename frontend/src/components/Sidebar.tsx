@@ -19,7 +19,22 @@ interface NavGroup {
 const PROFILE_NAV: NavItem = { to: '/profile', label: 'Личный кабинет' };
 
 const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
-  ADMIN: [{ items: [{ to: '/users', label: 'Пользователи' }] }],
+  ADMIN: [
+    {
+      title: 'Администрирование',
+      items: [
+        { to: '/users', label: 'Пользователи' },
+        { to: '/questions', label: 'Шаблон анкеты' },
+      ],
+    },
+    {
+      title: 'Скоринг',
+      items: [
+        { to: '/companies', label: 'Компании' },
+        { to: '/questionnaires', label: 'Анкеты' },
+      ],
+    },
+  ],
   EMPLOYEE: [
     {
       title: 'Скоринг',
