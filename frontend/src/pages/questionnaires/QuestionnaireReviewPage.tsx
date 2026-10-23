@@ -27,6 +27,7 @@ import RecommendationsList from '../../components/RecommendationsList';
 import ArtifactsView from '../../components/ArtifactsView';
 import ActivityLogView from '../../components/ActivityLogView';
 import Tooltip from '../../components/Tooltip';
+import MaturityReview from '../../components/maturity/MaturityReview';
 import type {
   ManagedUser,
   Questionnaire,
@@ -221,17 +222,35 @@ export default function QuestionnaireReviewPage() {
       .finally(() => setLoading(false));
   };
 
+  // Повторная загрузка без индикатора — после правки оценок зрелости
+  const refreshQuestionnaire = async () => {
+    if (!id) return;
+    const { data } = await getQuestionnaire(id);
+    setQuestionnaire(data);
+  };
+
   useEffect(() => {
     if (!id) return;
+    // страница переиспользуется для /questionnaires/:id и /maturity/:id —
+    // сбрасываем прежнюю анкету, чтобы не запросить скоринг по её типу
+    setQuestionnaire(null);
+    setLoading(true);
     loadQuestionnaire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Скоринг и рекомендации есть только у анкеты ИБ: для оценки зрелости эти
+  // эндпоинты отвечают 400, поэтому запрашиваем их, когда тип уже известен.
+  const questionnaireType = questionnaire?.type;
+  useEffect(() => {
+    if (!id || !questionnaireType || questionnaireType === 'MATURITY') return;
     getScoring(id)
       .then((r) => setScoring(r.data))
       .catch(() => setScoringError('Скоринг ещё не рассчитан. Анкета должна быть отправлена.'));
     getRecommendations(id)
       .then((r) => setRecommendations(r.data))
       .catch(() => setRecommendationsError('Не удалось загрузить рекомендации'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, questionnaireType]);
 
   const handleStatusChange = async (status: Status) => {
     if (!id) return;
@@ -274,7 +293,9 @@ export default function QuestionnaireReviewPage() {
     setDeleteError('');
     try {
       await deleteQuestionnaire(id);
-      navigate('/questionnaires', { replace: true });
+      navigate(questionnaire?.type === 'MATURITY' ? '/maturity' : '/questionnaires', {
+        replace: true,
+      });
     } catch (err) {
       setDeleteError(errorMessage(err, 'Не удалось удалить анкету'));
       setDeleting(false);
@@ -289,6 +310,7 @@ export default function QuestionnaireReviewPage() {
   const canDelete = canDeleteQuestionnaire(user, questionnaire);
   const canDecide = canEdit && questionnaire.status !== 'DRAFT';
   const ownerName = questionnaire.employee?.name ?? '—';
+  const isMaturity = questionnaire.type === 'MATURITY';
 
   return (
     <div className="max-w-4xl">
@@ -301,7 +323,7 @@ export default function QuestionnaireReviewPage() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-gray-900 truncate">
-            Анкета: {questionnaire.company?.name ?? '—'}
+            {isMaturity ? 'Оценка зрелости' : 'Анкета'}: {questionnaire.company?.name ?? '—'}
           </h1>
           {questionnaire.company && (
             <p className="text-sm text-gray-500">
@@ -352,9 +374,11 @@ export default function QuestionnaireReviewPage() {
 
       {!canEdit && (
         <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
-          <span className="font-medium">Режим просмотра.</span> Принимать решение,
-          отправлять рекомендации и загружать файлы может только ответственный за
-          анкету — {ownerName}.
+          <span className="font-medium">Режим просмотра.</span>{' '}
+          {isMaturity
+            ? 'Принимать решение, изменять оценки, целевой уровень и загружать файлы'
+            : 'Принимать решение, отправлять рекомендации и загружать файлы'}{' '}
+          может только ответственный за анкету — {ownerName}.
         </div>
       )}
 
@@ -436,6 +460,16 @@ export default function QuestionnaireReviewPage() {
         </div>
       )}
 
+      {isMaturity ? (
+        <MaturityReview
+          questionnaire={questionnaire}
+          canEdit={canEdit}
+          historyKey={historyKey}
+          onHistoryChanged={() => setHistoryKey((k) => k + 1)}
+          onReloadQuestionnaire={refreshQuestionnaire}
+        />
+      ) : (
+      <>
       <div className="flex gap-1 mb-4 border-b border-gray-200">
         {TABS.map((t) => (
           <button
@@ -517,6 +551,8 @@ export default function QuestionnaireReviewPage() {
       {tab === 'history' && (
         <ActivityLogView key={historyKey} questionnaireId={questionnaire.id} />
       )}
+      </>
+      )}
 
       <ConfirmDialog
         open={confirmDelete}
@@ -524,8 +560,9 @@ export default function QuestionnaireReviewPage() {
         description={
           <>
             <p>
-              Анкета компании «{questionnaire.company?.name ?? '—'}» будет удалена
-              вместе со всеми ответами, скорингом и ссылками.
+              {isMaturity ? 'Оценка зрелости' : 'Анкета'} компании «
+              {questionnaire.company?.name ?? '—'}» будет удалена вместе со всеми{' '}
+              {isMaturity ? 'оценками, файлами' : 'ответами, скорингом'} и ссылками.
             </p>
             <p className="font-medium text-red-600">Действие необратимо.</p>
           </>

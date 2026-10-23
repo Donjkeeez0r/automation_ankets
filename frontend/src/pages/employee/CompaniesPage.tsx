@@ -10,7 +10,7 @@ import {
   addCompanyEmployee,
   deleteCompanyEmployee,
 } from '../../api/companies';
-import { createQuestionnaire } from '../../api/questionnaire';
+import { createQuestionnaire, type CreateQuestionnaireOptions } from '../../api/questionnaire';
 import { createLink } from '../../api/links';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -18,6 +18,8 @@ import Tooltip from '../../components/Tooltip';
 import { copyToClipboard } from '../../lib/clipboard';
 import CompanyForm, { type CompanyFormPayload } from '../../components/CompanyForm';
 import QuestionOverridesDialog from '../../components/QuestionOverridesDialog';
+import CreateQuestionnaireDialog from '../../components/CreateQuestionnaireDialog';
+import { questionnairePath } from '../../lib/routes';
 import SearchInput from '../../components/SearchInput';
 import Pagination from '../../components/Pagination';
 import { usePagination, PAGE_SIZE } from '../../lib/pagination';
@@ -315,6 +317,9 @@ function CompanyCard({
   const [linkFor, setLinkFor] = useState<string | null>(null);
   const [fillDays, setFillDays] = useState(String(DEFAULT_FILL_DAYS));
   const [editing, setEditing] = useState(false);
+  // Диалог выбора типа анкеты (анкета ИБ / оценка зрелости) перед созданием
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const cardRef = useRef<HTMLDivElement>(null);
   const autoExpandDone = useRef(false);
@@ -352,14 +357,17 @@ function CompanyCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoExpand]);
 
-  const handleCreateQuestionnaire = async () => {
+  const handleCreateQuestionnaire = async (options: CreateQuestionnaireOptions) => {
     setBusy(true);
-    setError('');
+    setCreateError('');
     try {
-      await createQuestionnaire(company.id);
+      await createQuestionnaire(company.id, options);
+      setCreateOpen(false);
+      // раскрываем карточку, чтобы новая анкета была сразу видна
+      setExpanded(true);
       await load();
     } catch (err) {
-      setError(errorMessage(err, 'Не удалось создать анкету'));
+      setCreateError(errorMessage(err, 'Не удалось создать анкету'));
     } finally {
       setBusy(false);
     }
@@ -414,7 +422,10 @@ function CompanyCard({
           {/* Анкету создаёт ответственный за скоринг — она закрепляется за ним */}
           {isEmployee(user) && (
             <button
-              onClick={handleCreateQuestionnaire}
+              onClick={() => {
+                setCreateError('');
+                setCreateOpen(true);
+              }}
               disabled={busy}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
@@ -454,10 +465,22 @@ function CompanyCard({
             <div className="space-y-3">
               {questionnaires.map((q) => {
                 const mine = canEditQuestionnaire(user, q);
+                const isMaturity = q.type === 'MATURITY';
                 return (
                 <div key={q.id} className="border border-gray-100 rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                      <span
+                        className={`shrink-0 px-2 py-0.5 rounded text-[11px] font-medium ${
+                          isMaturity
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {isMaturity
+                          ? `Оценка зрелости${q.targetLevel !== null ? ` · цель ${q.targetLevel}` : ''}`
+                          : 'Анкета ИБ'}
+                      </span>
                       <StatusBadge status={q.status} />
                       <span className="text-xs text-gray-400">
                         от {new Date(q.createdAt).toLocaleDateString('ru-RU')}
@@ -469,11 +492,13 @@ function CompanyCard({
                     </div>
                     <div className="flex items-center gap-2">
                       <Link
-                        to={`/questionnaires/${q.id}`}
+                        to={questionnairePath(q)}
                         className="px-3 py-1.5 text-blue-600 text-xs font-medium hover:underline"
                       >
-                        Открыть анкету
+                        {isMaturity ? 'Открыть оценку' : 'Открыть анкету'}
                       </Link>
+                      {/* У оценки зрелости нет вопросов — обязательность не настраивается */}
+                      {!isMaturity && (
                       <Tooltip
                         text={
                           mine
@@ -489,6 +514,7 @@ function CompanyCard({
                           {mine ? 'Настроить обязательность вопросов' : 'Обязательность вопросов'}
                         </button>
                       </Tooltip>
+                      )}
                       {mine && (
                         <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
                           <button
@@ -622,6 +648,14 @@ function CompanyCard({
           </div>
         </div>
       )}
+
+      <CreateQuestionnaireDialog
+        open={createOpen}
+        busy={busy}
+        error={createError}
+        onCreate={(options) => void handleCreateQuestionnaire(options)}
+        onCancel={() => setCreateOpen(false)}
+      />
 
       {overridesFor && (
         <QuestionOverridesDialog

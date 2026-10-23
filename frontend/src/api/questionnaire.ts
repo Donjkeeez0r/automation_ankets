@@ -23,9 +23,22 @@ export const getAllQuestions = () =>
 export const updateQuestionRequired = (id: string, required: boolean) =>
   api.patch<Question>(`/questionnaire/questions/${id}`, { required });
 
-// EMPLOYEE: создать анкету для компании
-export const createQuestionnaire = (companyId: string) =>
-  api.post<Questionnaire>('/questionnaire', { companyId });
+// EMPLOYEE: создать анкету для компании. Без options создаётся анкета ИБ
+// (тело запроса как раньше); для оценки зрелости обязателен targetLevel.
+export type CreateQuestionnaireOptions =
+  | { type: 'SECURITY' }
+  | { type: 'MATURITY'; targetLevel: number };
+
+export const createQuestionnaire = (
+  companyId: string,
+  options?: CreateQuestionnaireOptions,
+) =>
+  api.post<Questionnaire>(
+    '/questionnaire',
+    options?.type === 'MATURITY'
+      ? { companyId, type: 'MATURITY', targetLevel: options.targetLevel }
+      : { companyId },
+  );
 
 export const getScoring = (id: string) =>
   api.get<ScoringResult>(`/questionnaire/${id}/scoring`);

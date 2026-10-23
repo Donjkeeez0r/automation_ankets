@@ -10,6 +10,8 @@ const DOT_COLORS: Record<string, string> = {
   RECOMMENDATIONS_EMAIL_SENT: 'bg-amber-500',
   REVISION_EMAIL_SENT: 'bg-rose-500',
   OWNER_CHANGED: 'bg-violet-500',
+  MATURITY_VALUES_EDITED: 'bg-sky-500',
+  TARGET_LEVEL_CHANGED: 'bg-teal-500',
 };
 
 const formatDateTime = (iso: string) =>

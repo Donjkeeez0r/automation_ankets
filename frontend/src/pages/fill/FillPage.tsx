@@ -18,6 +18,8 @@ import {
   formatFileSize,
 } from '../../api/artifacts';
 import Tooltip from '../../components/Tooltip';
+import { isAlreadySubmittedError } from '../../lib/linkErrors';
+import MaturityFillForm from './MaturityFillForm';
 import type {
   Question,
   Answer,
@@ -65,17 +67,6 @@ function missingCodesFromError(err: unknown): string[] | null {
     ?.missingCodes;
   if (!Array.isArray(codes) || codes.length === 0) return null;
   return codes.filter((c): c is string => typeof c === 'string');
-}
-
-// Анкета уже отправлена, если бэкенд вернул 403 с reason: 'ALREADY_SUBMITTED'
-// (ссылка деактивирована после отправки) либо 400 из submitQuestionnaire при
-// статусе не DRAFT/REVISION. Для подрядчика это не ошибка: анкета доставлена,
-// значит нужно показать экран-подтверждение.
-function isAlreadySubmittedError(err: unknown): boolean {
-  const data = (err as { response?: { data?: { message?: unknown; reason?: unknown } } })?.response
-    ?.data;
-  if (data?.reason === 'ALREADY_SUBMITTED') return true;
-  return typeof data?.message === 'string' && data.message.includes('уже была отправлена');
 }
 
 // Подзаголовок группы вопросов: основной текст и необязательное пояснение,
@@ -416,13 +407,34 @@ function ArtifactsBlock({
 // Вводный экран с правилами заполнения: те же пункты, что и в письме со
 // ссылкой (links.service.ts). Показывается один раз за визит — состояние
 // живёт только в памяти вкладки, при перезагрузке экран появится снова.
+// Надзаголовок экранов подрядчика зависит от типа анкеты
+const kickerFor = (isMaturity: boolean) =>
+  isMaturity ? 'Оценка уровня зрелости' : 'Анкетирование ИБ';
+
+const SECURITY_RULES = [
+  'Все ответы должны быть развёрнутыми и содержательными — формальные отписки не принимаются и будут возвращены на доработку.',
+  'Вопросы, отмеченные звёздочкой (*), обязательны для ответа.',
+  'При необходимости прикладывайте подтверждающие документы (файлы) — это ускорит проверку.',
+];
+
+// Правила для оценки зрелости — те же пункты, что и в письме со ссылкой
+const MATURITY_RULES = [
+  'Это оценка уровня зрелости деятельности вашей организации в области защиты информации по методике ФСТЭК России. Она проводится по 21 направлению деятельности.',
+  'По каждому направлению для каждого из 8 видов требований выберите вариант, который наиболее точно описывает текущее положение дел.',
+  'Если направление для вашей организации неприменимо (соответствующие процессы или технологии не используются), отметьте это и обязательно укажите причину.',
+  'Ответы сохраняются автоматически — можно прерваться и позже продолжить по этой же ссылке.',
+  'Желательно прикладывать подтверждающие документы (регламенты, отчёты, сертификаты) — это ускорит проверку.',
+];
+
 function FillIntro({
   companyName,
   fillDeadlineAt,
+  isMaturity,
   onStart,
 }: {
   companyName?: string;
   fillDeadlineAt?: string | null;
+  isMaturity: boolean;
   onStart: () => void;
 }) {
   const deadline = fillDeadlineAt ? new Date(fillDeadlineAt) : null;
@@ -431,18 +443,14 @@ function FillIntro({
       ? deadline.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : null;
 
-  const rules = [
-    'Все ответы должны быть развёрнутыми и содержательными — формальные отписки не принимаются и будут возвращены на доработку.',
-    'Вопросы, отмеченные звёздочкой (*), обязательны для ответа.',
-    'При необходимости прикладывайте подтверждающие документы (файлы) — это ускорит проверку.',
-  ];
+  const rules = isMaturity ? MATURITY_RULES : SECURITY_RULES;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-xl mx-auto">
         <div className="mb-6">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            Анкетирование ИБ
+            {kickerFor(isMaturity)}
           </div>
           <h1 className="text-xl font-bold text-gray-900">Прежде чем начать заполнение</h1>
           {companyName && (
@@ -486,11 +494,13 @@ function FillIntro({
 function EmployeeSelect({
   token,
   companyName,
+  isMaturity,
   onSelected,
   onEmpty,
 }: {
   token: string;
   companyName?: string;
+  isMaturity: boolean;
   onSelected: (employee: ContractorEmployee) => void;
   onEmpty: () => void;
 }) {
@@ -528,11 +538,12 @@ function EmployeeSelect({
       <div className="max-w-xl mx-auto">
         <div className="mb-6">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            Анкетирование ИБ
+            {kickerFor(isMaturity)}
           </div>
           <h1 className="text-xl font-bold text-gray-900">Выберите себя из списка</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Укажите, кто заполняет анкету{companyName ? ` от компании ${companyName}` : ''}.
+            Укажите, кто {isMaturity ? 'проходит оценку' : 'заполняет анкету'}
+            {companyName ? ` от компании ${companyName}` : ''}.
           </p>
         </div>
 
@@ -541,7 +552,9 @@ function EmployeeSelect({
             <div className="text-sm text-gray-500">Загрузка списка сотрудников...</div>
           ) : employees.length === 0 ? (
             // Пустой список: родитель уже получил onEmpty и переключается на форму
-            <div className="text-sm text-gray-500">Открываем анкету...</div>
+            <div className="text-sm text-gray-500">
+              {isMaturity ? 'Открываем оценку...' : 'Открываем анкету...'}
+            </div>
           ) : (
             <ul className="space-y-2">
               {employees.map((e) => (
@@ -634,6 +647,8 @@ export default function FillPage() {
       .catch(() => undefined);
   }, [token]);
 
+  const markSubmitted = useCallback(() => setSubmitted(true), []);
+
   const getVisibleSections = useCallback(() => {
     const visible = new Set(['general_info', 'ib_measures']);
     for (const [code, section] of Object.entries(TRIGGER_SECTIONS)) {
@@ -725,17 +740,21 @@ export default function FillPage() {
     );
   }
 
+  const isMaturity = link?.questionnaire.type === 'MATURITY';
+
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
           <div className="text-3xl mb-3">✅</div>
           <h1 className="text-lg font-bold text-gray-900 mb-2">
-            Анкета успешно отправлена
+            {isMaturity ? 'Оценка успешно отправлена' : 'Анкета успешно отправлена'}
           </h1>
           <p className="text-sm text-gray-500">
-            Спасибо! Ваши ответы и приложенные файлы переданы на проверку.
-            Мы свяжемся с вами после её завершения. Эту вкладку можно закрыть.
+            {isMaturity
+              ? 'Спасибо! Ваши оценки и приложенные файлы переданы на проверку.'
+              : 'Спасибо! Ваши ответы и приложенные файлы переданы на проверку.'}
+            {' '}Мы свяжемся с вами после её завершения. Эту вкладку можно закрыть.
           </p>
         </div>
       </div>
@@ -749,6 +768,7 @@ export default function FillPage() {
       <FillIntro
         companyName={link.questionnaire.company?.name}
         fillDeadlineAt={link.questionnaire.fillDeadlineAt}
+        isMaturity={isMaturity}
         onStart={() => setIntroDone(true)}
       />
     );
@@ -760,9 +780,59 @@ export default function FillPage() {
       <EmployeeSelect
         token={token}
         companyName={link.questionnaire.company?.name}
+        isMaturity={isMaturity}
         onSelected={setFilledBy}
         onEmpty={() => setNoEmployees(true)}
       />
+    );
+  }
+
+  if (isMaturity && token) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-6">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+              {kickerFor(true)}
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">
+              Оценка уровня зрелости защиты информации
+            </h1>
+            {link.questionnaire.company?.name && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                Компания: {link.questionnaire.company.name}
+              </p>
+            )}
+            <p className="text-sm text-gray-500 mt-0.5">
+              Заполняет:{' '}
+              {filledBy
+                ? `${filledBy.name}${filledBy.position ? ` (${filledBy.position})` : ''}`
+                : 'Аноним'}
+            </p>
+          </div>
+
+          {link.questionnaire.comment && (
+            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+              <span className="font-medium">Комментарий проверяющего:</span>{' '}
+              {link.questionnaire.comment}
+            </div>
+          )}
+
+          <GuaranteeLetterBlock
+            token={token}
+            letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
+          />
+
+          <MaturityFillForm
+            token={token}
+            items={link.questionnaire.maturityItems}
+            artifactsBlock={
+              <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
+            }
+            onSubmitted={markSubmitted}
+          />
+        </div>
+      </div>
     );
   }
 

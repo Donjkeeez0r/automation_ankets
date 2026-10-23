@@ -14,7 +14,27 @@ import {
   canEditQuestionnaire,
   isEmployee,
 } from '../../lib/permissions';
-import type { Questionnaire, Status } from '../../types';
+import MaturityLevelBadge from '../../components/maturity/MaturityLevelBadge';
+import { levelName, useMaturityReference } from '../../lib/maturity';
+import { questionnairePath } from '../../lib/routes';
+import type { Questionnaire, QuestionnaireType, Status } from '../../types';
+
+// Тексты списка для каждого типа анкет: один компонент обслуживает
+// и «Анкеты ИБ», и «Оценку зрелости», различаются фильтр и колонки.
+const PAGE_TEXT: Record<QuestionnaireType, { title: string; description: string; empty: string }> = {
+  SECURITY: {
+    title: 'Анкеты ИБ',
+    description:
+      'Анкеты, заполненные подрядчиками: проверка ответов, скоринг и решение. Чужие анкеты доступны только для просмотра.',
+    empty: 'Анкеты не найдены',
+  },
+  MATURITY: {
+    title: 'Оценка зрелости',
+    description:
+      'Оценки уровня зрелости защиты информации по методике ФСТЭК: результат по направлениям, профиль и решение. Чужие оценки доступны только для просмотра.',
+    empty: 'Оценки зрелости не найдены',
+  },
+};
 
 // Группы статусов для чипов: SUBMITTED и IN_REVIEW показываются одинаково
 // («На проверке»), поэтому фильтруются одной кнопкой.
@@ -43,8 +63,12 @@ const STATUS_FILTER_ORDER = Object.keys(STATUS_FILTER_LABELS) as Exclude<
 
 type OwnerFilter = 'ALL' | 'MINE';
 
-export default function QuestionnairesListPage() {
+export default function QuestionnairesListPage({ type }: { type: QuestionnaireType }) {
   const { user } = useAuth();
+  const isMaturity = type === 'MATURITY';
+  const text = PAGE_TEXT[type];
+  // Названия уровней для колонки «Целевой уровень» — только у оценки зрелости
+  const { reference } = useMaturityReference(isMaturity);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('ALL');
 
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
@@ -61,10 +85,11 @@ export default function QuestionnairesListPage() {
 
   useEffect(() => {
     getAllQuestionnaires()
-      .then((r) => setQuestionnaires(r.data))
+      // старые анкеты без поля type считаем анкетами ИБ
+      .then((r) => setQuestionnaires(r.data.filter((q) => (q.type ?? 'SECURITY') === type)))
       .catch(() => setError('Не удалось загрузить анкеты'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [type]);
 
   const closeDialog = () => {
     setToDelete(null);
@@ -147,11 +172,8 @@ export default function QuestionnairesListPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900">Анкеты</h1>
-      <p className="text-sm text-gray-500 mt-1 mb-6">
-        Анкеты, заполненные подрядчиками: проверка ответов, скоринг и решение.
-        Чужие анкеты доступны только для просмотра.
-      </p>
+      <h1 className="text-xl font-bold text-gray-900">{text.title}</h1>
+      <p className="text-sm text-gray-500 mt-1 mb-6">{text.description}</p>
 
       {questionnaires.length > 0 && (
         <div className="mb-5 space-y-3">
@@ -179,7 +201,7 @@ export default function QuestionnairesListPage() {
 
       {questionnaires.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
-          Анкеты не найдены
+          {text.empty}
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500 text-sm">
@@ -208,6 +230,11 @@ export default function QuestionnairesListPage() {
                     </span>
                   </button>
                 </th>
+                {isMaturity && (
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">
+                    Целевой уровень
+                  </th>
+                )}
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Статус</th>
                 <th className="px-6 py-3"></th>
               </tr>
@@ -239,6 +266,14 @@ export default function QuestionnairesListPage() {
                   <td className="px-6 py-4 text-gray-500">
                     {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                   </td>
+                  {isMaturity && (
+                    <td className="px-6 py-4">
+                      <MaturityLevelBadge
+                        level={q.targetLevel}
+                        name={reference ? levelName(reference, q.targetLevel) : null}
+                      />
+                    </td>
+                  )}
                   <td className="px-6 py-4">
                     <StatusBadge status={q.status} />
                     {q.deadlineAt && (
@@ -253,7 +288,7 @@ export default function QuestionnairesListPage() {
                   <td className="px-6 py-4 text-right whitespace-nowrap">
                     <div className="inline-flex items-center gap-4">
                       <Link
-                        to={`/questionnaires/${q.id}`}
+                        to={questionnairePath(q)}
                         className="text-blue-600 hover:underline font-medium"
                       >
                         Открыть
@@ -287,8 +322,9 @@ export default function QuestionnairesListPage() {
         description={
           <>
             <p>
-              Анкета компании «{toDelete?.company?.name ?? '—'}» будет удалена
-              вместе со всеми ответами, скорингом и ссылками.
+              {isMaturity ? 'Оценка зрелости' : 'Анкета'} компании «
+              {toDelete?.company?.name ?? '—'}» будет удалена вместе со всеми{' '}
+              {isMaturity ? 'оценками, файлами' : 'ответами, скорингом'} и ссылками.
             </p>
             <p className="font-medium text-red-600">Действие необратимо.</p>
           </>

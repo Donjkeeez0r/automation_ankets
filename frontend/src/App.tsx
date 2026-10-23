@@ -49,8 +49,17 @@ export default function App() {
                 но нужная карточка раскрыта и подсвечена */}
             <Route path="/companies/:companyId" element={<CompaniesPage />} />
             <Route path="/questions" element={<QuestionsPage />} />
-            <Route path="/questionnaires" element={<QuestionnairesListPage />} />
+            {/* Один список на оба типа анкет; key пересоздаёт страницу при переходе */}
+            <Route
+              path="/questionnaires"
+              element={<QuestionnairesListPage key="SECURITY" type="SECURITY" />}
+            />
             <Route path="/questionnaires/:id" element={<QuestionnaireReviewPage />} />
+            <Route
+              path="/maturity"
+              element={<QuestionnairesListPage key="MATURITY" type="MATURITY" />}
+            />
+            <Route path="/maturity/:id" element={<QuestionnaireReviewPage />} />
           </Route>
 
           <Route path="/" element={<RootRedirect />} />

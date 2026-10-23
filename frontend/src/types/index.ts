@@ -1,3 +1,7 @@
+import type { MaturityItem, QuestionnaireType } from './maturity';
+
+export type { QuestionnaireType } from './maturity';
+
 export type Role = 'ADMIN' | 'EMPLOYEE';
 
 export type Status =
@@ -117,6 +121,10 @@ export interface AnswerWithQuestion {
 
 export interface Questionnaire {
   id: string;
+  // Тип анкеты: анкета ИБ (SECURITY) или оценка уровня зрелости (MATURITY)
+  type: QuestionnaireType;
+  // Целевой уровень зрелости 0–4; только у MATURITY
+  targetLevel: number | null;
   status: Status;
   createdAt: string;
   updatedAt: string;
@@ -127,6 +135,7 @@ export interface Questionnaire {
   deadlineAt?: string | null;
   company?: CompanyRef;
   answers?: AnswerWithQuestion[];
+  maturityItems?: MaturityItem[];
   filledByEmployee?: ContractorEmployee | null;
 }
 
@@ -151,6 +160,8 @@ export interface CompanyLink {
 // Анкета компании с её ссылками (GET /companies/:id/questionnaires)
 export interface CompanyQuestionnaire {
   id: string;
+  type: QuestionnaireType;
+  targetLevel: number | null;
   employeeId: string;
   employee?: QuestionnaireOwner;
   status: Status;
@@ -164,6 +175,8 @@ export interface CompanyQuestionnaire {
 // Анкета, полученная подрядчиком по токену (GET /links/:token)
 export interface LinkQuestionnaire {
   id: string;
+  type: QuestionnaireType;
+  targetLevel: number | null;
   status: Status;
   comment?: string | null;
   // Крайний срок заполнения анкеты подрядчиком (проставляется при создании ссылки)
@@ -171,6 +184,7 @@ export interface LinkQuestionnaire {
   company?: CompanyRef;
   answers?: Answer[];
   overrides?: QuestionOverride[];
+  maturityItems?: MaturityItem[];
   filledByEmployee?: ContractorEmployee | null;
 }
 

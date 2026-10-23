@@ -8,6 +8,12 @@ interface NavItem {
   label: string;
 }
 
+const SCORING_ITEMS: NavItem[] = [
+  { to: '/companies', label: 'Компании' },
+  { to: '/questionnaires', label: 'Анкеты ИБ' },
+  { to: '/maturity', label: 'Оценка зрелости' },
+];
+
 // Пункты сгруппированы по смыслу: рабочие разделы отдельно от настроек,
 // иначе «Анкеты» (анкеты подрядчиков) и «Шаблон анкеты» (набор вопросов)
 // в плоском списке читаются как одно и то же.
@@ -29,19 +35,13 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
     },
     {
       title: 'Скоринг',
-      items: [
-        { to: '/companies', label: 'Компании' },
-        { to: '/questionnaires', label: 'Анкеты' },
-      ],
+      items: SCORING_ITEMS,
     },
   ],
   EMPLOYEE: [
     {
       title: 'Скоринг',
-      items: [
-        { to: '/companies', label: 'Компании' },
-        { to: '/questionnaires', label: 'Анкеты' },
-      ],
+      items: SCORING_ITEMS,
     },
     {
       title: 'Настройки',
