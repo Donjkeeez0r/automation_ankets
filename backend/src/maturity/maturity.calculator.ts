@@ -41,15 +41,11 @@ const WEIGHTS = Object.fromEntries(
 const round = (n: number, digits: number) =>
   Math.round(n * 10 ** digits) / 10 ** digits;
 
+// Невыбранное значение считается невыполненным (0), по аналогии с п. 24
 const valueOf = (values: RequirementValues, key: RequirementKey) =>
   values[key] ?? 0;
 
-export function isAllowedValue(key: RequirementKey, value: number): boolean {
-  const type = REQUIREMENT_TYPES.find((t) => t.key === key);
-  return !!type && type.options.some((o) => o.value === value);
-}
-
-// Считаем P (29-30 пункт)
+// P = сумма D, D = вес × a (пп. 29–30)
 export function calcDirectionP(values: RequirementValues): number {
   const sum = REQUIREMENT_KEYS.reduce(
     (acc, key) => acc + WEIGHTS[key] * valueOf(values, key),
@@ -88,7 +84,6 @@ export function getLevelName(value: number): string {
   return MATURITY_LEVELS[level].name;
 }
 
-// Полный расчёт оценки
 export function calcAssessment(
   items: DirectionInput[],
   targetLevel: number,
@@ -132,15 +127,16 @@ export function calcAssessment(
     };
   }
 
-  // УЗИ (п. 10)
+  // Узи — среднее уровней применимых направлений (п. 10)
   const rawOverall =
     applicable.reduce((sum, d) => sum + d.level!, 0) / applicable.length;
-  const overallLevel = Math.min(4, Math.floor(rawOverall));
+  const overallLevel = Math.floor(rawOverall);
 
   return {
     directions,
     overall: round(rawOverall, 2),
     overallLevel,
+    // название — по неокруглённому Узи: округление могло бы поднять его до следующего уровня
     overallLevelName: getLevelName(rawOverall),
     applicableCount: applicable.length,
     belowTargetCount: applicable.filter((d) => !d.meetsTarget).length,

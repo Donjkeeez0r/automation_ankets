@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsIn,
@@ -76,5 +77,8 @@ export class SaveMaturityDto {
   @ArrayMaxSize(DIRECTIONS.length)
   @ValidateNested({ each: true })
   @Type(() => MaturityItemDto)
+  @ArrayUnique((i: MaturityItemDto) => i.direction, {
+    message: 'Направления в списке не должны повторяться',
+  })
   items!: MaturityItemDto[];
 }

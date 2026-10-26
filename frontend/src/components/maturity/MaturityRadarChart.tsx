@@ -12,10 +12,9 @@ import {
 import { levelColor } from '../../lib/maturity';
 import type { MaturityDirectionResult } from '../../types/maturity';
 
-// Цвета серий: текущий уровень — основной синий приложения (blue-600),
-// целевой — нейтральный серый пунктир, чтобы серии различались не только цветом.
+// Цвет цели не совпадает ни с одним цветом уровней, а пунктир различает серии и без цвета
 const CURRENT_COLOR = '#2563eb';
-const TARGET_COLOR = '#6b7280';
+const TARGET_COLOR = '#db2777';
 
 interface ChartRow {
   axis: string; // подпись оси — номер направления (полные названия длинные)
@@ -42,9 +41,8 @@ function ChartTooltip({ active, payload }: TooltipProps<number, string>) {
   );
 }
 
-// Точка текущего уровня окрашена по уровню — как бейджи в таблице
-// (рендер-функция, а не компонент: recharts кладёт результат в массив, нужен key)
-// recharts передаёт в payload точку диаграммы; её value — текущий уровень направления
+// Рендер-функция, а не компонент: recharts кладёт результат в массив (нужен key),
+// а в payload передаёт точку диаграммы, где value — текущий уровень направления
 function renderLevelDot(props: {
   cx?: number;
   cy?: number;
@@ -88,15 +86,19 @@ function LevelBars({ rows }: { rows: ChartRow[] }) {
                 backgroundColor: levelColor(row.current).hex,
               }}
             />
+            {/* метка цели выступает за полосу — видна и при совпадении с текущим */}
             <div
-              className="absolute -inset-y-1 w-0.5 bg-gray-700"
-              style={{ left: `calc(${(row.target / 4) * 100}% - 1px)` }}
+              className="absolute -inset-y-1.5 w-1 rounded-full"
+              style={{
+                left: `calc(${(row.target / 4) * 100}% - 2px)`,
+                backgroundColor: TARGET_COLOR,
+              }}
               title={`Целевой уровень: ${row.target}`}
             />
           </div>
-          <div className="mt-1 flex justify-between text-xs text-gray-500">
+          <div className="mt-1.5 flex justify-between text-xs text-gray-500">
             <span>Текущий: {row.current}</span>
-            <span>Целевой: {row.target}</span>
+            <span style={{ color: TARGET_COLOR }}>Целевой: {row.target}</span>
           </div>
         </div>
       ))}
@@ -125,6 +127,10 @@ export default function MaturityRadarChart({
 
   if (rows.length < 3) return <LevelBars rows={rows} />;
 
+  // Шкалу 0–4 ставим посередине между первой (верхней) и второй осями, чтобы её
+  // подписи не налезали на номера направлений. Оси идут по часовой стрелке от 90°.
+  const scaleAngle = 90 - 180 / rows.length;
+
   return (
     <div className="h-[340px] sm:h-[420px]">
       <ResponsiveContainer width="100%" height="100%">
@@ -134,19 +140,11 @@ export default function MaturityRadarChart({
           <PolarRadiusAxis
             domain={[0, 4]}
             tickCount={5}
-            angle={90}
+            angle={scaleAngle}
+            // 0 совпадает с центром — подпись там только мешает
+            tickFormatter={(v: number) => (v === 0 ? '' : String(v))}
             tick={{ fill: '#9ca3af', fontSize: 10 }}
             axisLine={false}
-          />
-          <Radar
-            name="Целевой уровень"
-            dataKey="target"
-            stroke={TARGET_COLOR}
-            strokeWidth={2}
-            strokeDasharray="5 4"
-            fill="none"
-            dot={false}
-            isAnimationActive={false}
           />
           <Radar
             name="Текущий уровень"
@@ -157,6 +155,19 @@ export default function MaturityRadarChart({
             fillOpacity={0.15}
             dot={renderLevelDot}
             activeDot={{ r: 7 }}
+            isAnimationActive={false}
+          />
+          {/* цель рисуется последней — поверх текущего уровня, видна даже при совпадении */}
+          <Radar
+            name="Целевой уровень"
+            dataKey="target"
+            stroke={TARGET_COLOR}
+            strokeWidth={2.5}
+            strokeDasharray="6 4"
+            fill="none"
+            fillOpacity={0}
+            dot={false}
+            activeDot={false}
             isAnimationActive={false}
           />
           <Tooltip content={<ChartTooltip />} />

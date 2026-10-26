@@ -35,18 +35,29 @@ export interface MaturityDirectionRef {
 export interface MaturityLevelRef {
   level: number;
   name: string;
+  // характеристика уровня (таблица 1 методики)
+  description: string;
 }
 
-export interface RecommendedTargetLevel {
+// Тип систем, с которыми работает подрядчик, и рекомендуемый
+// минимальный целевой уровень для него (п. 11 методики)
+export interface MaturityObjectCategory {
+  key: string;
   label: string;
-  level: number;
+  recommendedLevel: number;
 }
 
 export interface MaturityReference {
   directions: MaturityDirectionRef[];
   requirementTypes: MaturityRequirementType[];
   levels: MaturityLevelRef[];
-  recommendedTargetLevels: RecommendedTargetLevel[];
+  objectCategories: MaturityObjectCategory[];
+}
+
+// Параметры оценки: целевой уровень и тип систем (null — «не указано»)
+export interface MaturityTarget {
+  targetLevel: number;
+  objectCategory: string | null;
 }
 
 // Значения 8 видов требований одного направления; null — не выбрано
@@ -79,6 +90,8 @@ export interface MaturityDirectionResult {
   meetsTarget: boolean | null;
   gaps: RequirementKey[];
   gapTitles: string[];
+  // комментарий подрядчика; у неприменимого направления — причина
+  comment: string | null;
 }
 
 export interface MaturityResult {
@@ -87,6 +100,13 @@ export interface MaturityResult {
   overall: number | null;
   overallLevel: number | null;
   overallLevelName: string | null;
+  // характеристика общего уровня
+  overallLevelDescription: string | null;
+  // выбранный тип систем; null — не указан
+  objectCategory: string | null;
+  objectCategoryLabel: string | null;
+  // рекомендуемый минимум для выбранного типа систем
+  recommendedLevel: number | null;
   applicableCount: number;
   belowTargetCount: number;
   directions: MaturityDirectionResult[];

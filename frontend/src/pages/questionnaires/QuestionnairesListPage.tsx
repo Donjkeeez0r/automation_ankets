@@ -85,8 +85,7 @@ export default function QuestionnairesListPage({ type }: { type: QuestionnaireTy
 
   useEffect(() => {
     getAllQuestionnaires()
-      // старые анкеты без поля type считаем анкетами ИБ
-      .then((r) => setQuestionnaires(r.data.filter((q) => (q.type ?? 'SECURITY') === type)))
+      .then((r) => setQuestionnaires(r.data.filter((q) => q.type === type)))
       .catch(() => setError('Не удалось загрузить анкеты'))
       .finally(() => setLoading(false));
   }, [type]);
@@ -167,6 +166,14 @@ export default function QuestionnairesListPage({ type }: { type: QuestionnaireTy
     `${query}|${statusFilter}|${dateAsc}|${ownerFilter}`,
   );
 
+  // У оценки зрелости есть лишняя колонка «Целевой уровень», поэтому таблица
+  // плотнее: меньше отступы, контакт — под названием компании, ответственный
+  // скрывается на средних ширинах.
+  const cellX = isMaturity ? 'px-4' : 'px-6';
+  const ownerCol = isMaturity ? 'hidden xl:table-cell' : '';
+  const categoryLabel = (key: string | null) =>
+    key ? (reference?.objectCategories.find((c) => c.key === key)?.label ?? null) : null;
+
   if (loading) return <div className="text-sm text-gray-500">Загрузка...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
 
@@ -212,10 +219,14 @@ export default function QuestionnairesListPage({ type }: { type: QuestionnaireTy
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Компания</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Контакт</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Ответственный</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">
+                <th className={`text-left ${cellX} py-3 font-medium text-gray-500`}>Компания</th>
+                {!isMaturity && (
+                  <th className="text-left px-6 py-3 font-medium text-gray-500">Контакт</th>
+                )}
+                <th className={`text-left ${cellX} py-3 font-medium text-gray-500 ${ownerCol}`}>
+                  Ответственный
+                </th>
+                <th className={`text-left ${cellX} py-3 font-medium text-gray-500`}>
                   <button
                     type="button"
                     onClick={() => setDateAsc((prev) => !prev)}
@@ -231,50 +242,73 @@ export default function QuestionnairesListPage({ type }: { type: QuestionnaireTy
                   </button>
                 </th>
                 {isMaturity && (
-                  <th className="text-left px-6 py-3 font-medium text-gray-500">
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">
                     Целевой уровень
                   </th>
                 )}
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Статус</th>
-                <th className="px-6 py-3"></th>
+                <th className={`text-left ${cellX} py-3 font-medium text-gray-500`}>Статус</th>
+                <th className={`${cellX} py-3`}></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pageItems.map((q) => (
                 <tr key={q.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">
+                  <td className={`${cellX} py-4 font-medium text-gray-900`}>
                     {q.company?.name ? (
                       <Link
                         to={`/companies/${q.companyId}`}
-                        className="hover:text-blue-600 hover:underline"
+                        className={`hover:text-blue-600 hover:underline ${
+                          isMaturity ? 'break-words' : ''
+                        }`}
                       >
                         {q.company.name}
                       </Link>
                     ) : (
                       '—'
                     )}
+                    {isMaturity && q.company?.contactName && (
+                      <div className="mt-0.5 text-xs font-normal text-gray-500">
+                        {q.company.contactName}
+                      </div>
+                    )}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {q.company?.contactName ?? '—'}
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
+                  {!isMaturity && (
+                    <td className="px-6 py-4 text-gray-500">
+                      {q.company?.contactName ?? '—'}
+                    </td>
+                  )}
+                  <td className={`${cellX} py-4 text-gray-500 ${ownerCol}`}>
                     {q.employee?.name ?? '—'}
                     {canEditQuestionnaire(user, q) && (
                       <span className="ml-1 text-xs text-blue-600">(вы)</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">
+                  <td className={`${cellX} py-4 text-gray-500`}>
                     {new Date(q.createdAt).toLocaleDateString('ru-RU')}
                   </td>
                   {isMaturity && (
-                    <td className="px-6 py-4">
-                      <MaturityLevelBadge
-                        level={q.targetLevel}
-                        name={reference ? levelName(reference, q.targetLevel) : null}
-                      />
+                    <td className="px-4 py-4">
+                      {/* цифра — бейджем, название и тип систем переносятся */}
+                      <div className="flex items-start gap-1.5">
+                        <MaturityLevelBadge
+                          level={q.targetLevel}
+                          name={reference ? levelName(reference, q.targetLevel) : null}
+                          compact
+                        />
+                        {reference && q.targetLevel !== null && (
+                          <span className="text-xs text-gray-700 leading-5">
+                            {levelName(reference, q.targetLevel)}
+                          </span>
+                        )}
+                      </div>
+                      {categoryLabel(q.objectCategory) && (
+                        <div className="mt-0.5 text-xs text-gray-500">
+                          {categoryLabel(q.objectCategory)}
+                        </div>
+                      )}
                     </td>
                   )}
-                  <td className="px-6 py-4">
+                  <td className={`${cellX} py-4`}>
                     <StatusBadge status={q.status} />
                     {q.deadlineAt && (
                       <div className="mt-1 text-xs text-gray-500 whitespace-nowrap">
@@ -285,7 +319,7 @@ export default function QuestionnairesListPage({ type }: { type: QuestionnaireTy
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                  <td className={`${cellX} py-4 text-right whitespace-nowrap`}>
                     <div className="inline-flex items-center gap-4">
                       <Link
                         to={questionnairePath(q)}

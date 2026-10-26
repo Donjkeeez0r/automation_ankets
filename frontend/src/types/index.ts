@@ -125,6 +125,8 @@ export interface Questionnaire {
   type: QuestionnaireType;
   // Целевой уровень зрелости 0–4; только у MATURITY
   targetLevel: number | null;
+  // Тип систем подрядчика (ключ из справочника); null — не указан
+  objectCategory: string | null;
   status: Status;
   createdAt: string;
   updatedAt: string;
@@ -162,6 +164,7 @@ export interface CompanyQuestionnaire {
   id: string;
   type: QuestionnaireType;
   targetLevel: number | null;
+  objectCategory: string | null;
   employeeId: string;
   employee?: QuestionnaireOwner;
   status: Status;
@@ -177,6 +180,7 @@ export interface LinkQuestionnaire {
   id: string;
   type: QuestionnaireType;
   targetLevel: number | null;
+  objectCategory: string | null;
   status: Status;
   comment?: string | null;
   // Крайний срок заполнения анкеты подрядчиком (проставляется при создании ссылки)

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
-import TargetLevelPicker from './maturity/TargetLevelPicker';
-import { useMaturityReference } from '../lib/maturity';
+import MaturityTargetPicker from './maturity/MaturityTargetPicker';
+import { directionsCountText, useMaturityReference } from '../lib/maturity';
 import type { CreateQuestionnaireOptions } from '../api/questionnaire';
 import type { QuestionnaireType } from '../types';
+import type { MaturityTarget } from '../types/maturity';
 
-// Целевой уровень по умолчанию для новой оценки зрелости
-const DEFAULT_TARGET_LEVEL = 1;
+// Параметры новой оценки зрелости по умолчанию: тип систем не указан, уровень 1
+const DEFAULT_TARGET: MaturityTarget = { targetLevel: 1, objectCategory: null };
 
-const TYPE_OPTIONS: { value: QuestionnaireType; title: string; description: string }[] = [
+// Число направлений берётся из справочника; пока он не загружен — без числа
+const typeOptions = (
+  directionsCount: number | null,
+): { value: QuestionnaireType; title: string; description: string }[] => [
   {
     value: 'SECURITY',
     title: 'Анкета ИБ',
@@ -16,8 +20,9 @@ const TYPE_OPTIONS: { value: QuestionnaireType; title: string; description: stri
   {
     value: 'MATURITY',
     title: 'Оценка уровня зрелости',
-    description:
-      'Оценка по методике ФСТЭК: 21 направление, уровень зрелости 0–4 и недостатки до целевого уровня.',
+    description: `Оценка по методике ФСТЭК: ${
+      directionsCount !== null ? `${directionsCountText(directionsCount)}, ` : ''
+    }уровень зрелости 0–4 и недостатки до целевого уровня.`,
   },
 ];
 
@@ -35,7 +40,7 @@ export default function CreateQuestionnaireDialog({
   onCancel: () => void;
 }) {
   const [type, setType] = useState<QuestionnaireType>('SECURITY');
-  const [targetLevel, setTargetLevel] = useState(DEFAULT_TARGET_LEVEL);
+  const [target, setTarget] = useState<MaturityTarget>(DEFAULT_TARGET);
   const isMaturity = type === 'MATURITY';
   const { reference, error: referenceError, retry } = useMaturityReference(open && isMaturity);
 
@@ -43,7 +48,7 @@ export default function CreateQuestionnaireDialog({
   useEffect(() => {
     if (!open) return;
     setType('SECURITY');
-    setTargetLevel(DEFAULT_TARGET_LEVEL);
+    setTarget(DEFAULT_TARGET);
   }, [open]);
 
   useEffect(() => {
@@ -76,7 +81,7 @@ export default function CreateQuestionnaireDialog({
         </p>
 
         <div role="radiogroup" aria-label="Тип анкеты" className="mt-4 grid gap-2 sm:grid-cols-2">
-          {TYPE_OPTIONS.map((opt) => {
+          {typeOptions(reference ? reference.directions.length : null).map((opt) => {
             const selected = opt.value === type;
             return (
               <label
@@ -103,7 +108,6 @@ export default function CreateQuestionnaireDialog({
 
         {isMaturity && (
           <div className="mt-5">
-            <div className="text-xs font-medium text-gray-700 mb-2">Целевой уровень зрелости</div>
             {referenceError ? (
               <div className="text-sm text-red-600">
                 {referenceError}{' '}
@@ -112,12 +116,12 @@ export default function CreateQuestionnaireDialog({
                 </button>
               </div>
             ) : !reference ? (
-              <div className="text-sm text-gray-500">Загрузка уровней...</div>
+              <div className="text-sm text-gray-500">Загрузка справочника...</div>
             ) : (
-              <TargetLevelPicker
+              <MaturityTargetPicker
                 reference={reference}
-                value={targetLevel}
-                onChange={setTargetLevel}
+                value={target}
+                onChange={setTarget}
                 disabled={busy}
               />
             )}
@@ -138,7 +142,7 @@ export default function CreateQuestionnaireDialog({
           <button
             type="button"
             onClick={() =>
-              onCreate(isMaturity ? { type: 'MATURITY', targetLevel } : { type: 'SECURITY' })
+              onCreate(isMaturity ? { type: 'MATURITY', ...target } : { type: 'SECURITY' })
             }
             disabled={!canCreate}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"

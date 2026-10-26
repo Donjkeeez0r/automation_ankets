@@ -6,14 +6,21 @@ import { updateMaturityItems } from '../../api/maturity';
 import {
   apiErrorMessage,
   directionStatus,
+  draftProblems,
   draftToInput,
   emptyDraft,
   filledCount,
   formatNumber,
+  isDirectionDone,
   isSameDraft,
+  maturityProblems,
+  problemDirections,
+  problemsText,
+  scrollToDirection,
   toDrafts,
   type MaturityDraft,
   type MaturityDrafts,
+  type MaturityProblems,
 } from '../../lib/maturity';
 import type {
   MaturityDirectionResult,
@@ -96,6 +103,8 @@ export default function MaturityAssessmentsView({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Направления, из-за которых правку нельзя сохранить (оценка стала бы неполной)
+  const [problems, setProblems] = useState<Set<number>>(new Set());
 
   // Свежие данные с сервера (после сохранения) — сбрасываем черновик
   useEffect(() => setDrafts(original), [original]);
@@ -127,12 +136,34 @@ export default function MaturityAssessmentsView({
     setDrafts(original);
     setEditing(false);
     setError('');
+    setProblems(new Set());
+  };
+
+  // Подсвечиваем проблемные направления, раскрываем их и прокручиваем к первому
+  const showProblems = (found: MaturityProblems) => {
+    const all = problemDirections(found);
+    setProblems(new Set(all));
+    setExpanded((prev) => new Set([...prev, ...all]));
+    setError(
+      `Изменения не сохранены — оценка стала бы неполной: ${problemsText(found)}. Направления подсвечены выше.`,
+    );
+    scrollToDirection(all[0]);
   };
 
   const save = async () => {
     if (changed.length === 0) return;
-    setSaving(true);
     setError('');
+    // Отправленная оценка должна остаться полной — проверяем до запроса
+    const found = draftProblems(
+      reference.directions.map((d) => d.id),
+      draftOf,
+    );
+    if (found) {
+      showProblems(found);
+      return;
+    }
+    setProblems(new Set());
+    setSaving(true);
     try {
       const { data } = await updateMaturityItems(
         questionnaireId,
@@ -142,7 +173,9 @@ export default function MaturityAssessmentsView({
       setEditing(false);
       setSuccess(data?.message ?? 'Значения обновлены');
     } catch (err) {
-      setError(apiErrorMessage(err, 'Не удалось сохранить изменения'));
+      const fromServer = maturityProblems(err);
+      if (fromServer) showProblems(fromServer);
+      else setError(apiErrorMessage(err, 'Не удалось сохранить изменения'));
     } finally {
       setSaving(false);
     }
@@ -198,6 +231,7 @@ export default function MaturityAssessmentsView({
           const draft = draftOf(d.id);
           const res = resultDirections.find((r) => r.direction === d.id);
           const isChanged = editing && changed.includes(d.id);
+          const highlighted = editing && problems.has(d.id) && !isDirectionDone(draft);
           return (
             <DirectionCard
               key={d.id}
@@ -207,6 +241,7 @@ export default function MaturityAssessmentsView({
               filled={filledCount(draft)}
               expanded={expanded.has(d.id)}
               onToggle={() => toggle(d.id)}
+              highlighted={highlighted}
               aside={
                 <>
                   {isChanged && (
@@ -226,6 +261,7 @@ export default function MaturityAssessmentsView({
                   reference={reference}
                   draft={draft}
                   showValues
+                  showMissing={highlighted}
                   onChange={(patch) =>
                     setDrafts((prev) => ({
                       ...prev,

@@ -6,7 +6,12 @@ import ActivityLogView from '../ActivityLogView';
 import MaturityResultView from './MaturityResultView';
 import MaturityAssessmentsView from './MaturityAssessmentsView';
 import type { Questionnaire, Status } from '../../types';
-import type { MaturityResult } from '../../types/maturity';
+import type {
+  MaturityDirectionResult,
+  MaturityItem,
+  MaturityResult,
+  MaturityTarget,
+} from '../../types/maturity';
 
 type Tab = 'result' | 'assessments' | 'files' | 'history';
 
@@ -20,6 +25,13 @@ const TABS: { key: Tab; label: string }[] = [
 // Сотрудник правит значения только во время проверки (так же проверяет бэкенд)
 const EDITABLE_STATUSES: Status[] = ['SUBMITTED', 'IN_REVIEW'];
 const NOT_SUBMITTED_STATUSES: Status[] = ['DRAFT', 'REVISION'];
+// После решения параметры оценки зафиксированы (так же проверяет бэкенд)
+const LOCKED_STATUSES: Status[] = ['APPROVED', 'DECLINED'];
+
+// Стабильные пустые массивы: новый [] при каждом рендере сбрасывал бы
+// несохранённые правки во вкладке «Оценки»
+const NO_ITEMS: MaturityItem[] = [];
+const NO_DIRECTIONS: MaturityDirectionResult[] = [];
 
 // Вкладки страницы проверки для оценки уровня зрелости (type = MATURITY).
 // Скоринга, рекомендаций и обязательности вопросов здесь нет.
@@ -69,12 +81,13 @@ export default function MaturityReview({
     await loadResult();
   };
 
-  const handleChangeTarget = async (level: number) => {
-    await updateMaturityTargetLevel(questionnaire.id, level);
+  const handleChangeTarget = async (target: MaturityTarget) => {
+    await updateMaturityTargetLevel(questionnaire.id, target);
     await refreshAfterChange();
   };
 
   const editable = canEdit && EDITABLE_STATUSES.includes(questionnaire.status);
+  const targetEditable = canEdit && !LOCKED_STATUSES.includes(questionnaire.status);
   const readOnlyHint = canEdit
     ? 'Изменять значения можно только пока анкета на проверке.'
     : undefined;
@@ -128,8 +141,7 @@ export default function MaturityReview({
           <MaturityResultView
             result={result}
             reference={reference}
-            items={questionnaire.maturityItems ?? []}
-            canEdit={canEdit}
+            canEditTarget={targetEditable}
             notSubmitted={NOT_SUBMITTED_STATUSES.includes(questionnaire.status)}
             onChangeTarget={handleChangeTarget}
           />
@@ -142,8 +154,8 @@ export default function MaturityReview({
           <MaturityAssessmentsView
             questionnaireId={questionnaire.id}
             reference={reference}
-            items={questionnaire.maturityItems ?? []}
-            resultDirections={result?.directions ?? []}
+            items={questionnaire.maturityItems ?? NO_ITEMS}
+            resultDirections={result?.directions ?? NO_DIRECTIONS}
             editable={editable}
             readOnlyHint={readOnlyHint}
             onSaved={refreshAfterChange}

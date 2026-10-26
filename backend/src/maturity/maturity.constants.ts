@@ -1,3 +1,4 @@
+// Ключи совпадают с колонками MaturityItem в schema.prisma — менять только вместе с миграцией
 export const REQUIREMENT_KEYS = [
   'documentation',
   'execution',
@@ -299,7 +300,8 @@ export const MATURITY_LEVELS = [
 
 export type MaturityLevel = 1 | 2 | 3 | 4;
 
-// Таблица 3
+// Таблица 3. Минимумы заданы значениями a, а не D = вес × a, чтобы сравнение не зависело
+// от погрешности float. Пороги по P (0,225 / 0,35 / 0,65 / 0,9) при этом выполняются автоматически.
 export const LEVEL_REQUIREMENTS: Record<
   MaturityLevel,
   Partial<Record<RequirementKey, number>>

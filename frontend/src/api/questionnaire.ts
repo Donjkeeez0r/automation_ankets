@@ -8,6 +8,7 @@ import type {
   QuestionOverride,
   ActivityLogEntry,
 } from '../types';
+import type { MaturityTarget } from '../types/maturity';
 
 export const getAllQuestionnaires = () =>
   api.get<Questionnaire[]>('/questionnaire');
@@ -23,11 +24,12 @@ export const getAllQuestions = () =>
 export const updateQuestionRequired = (id: string, required: boolean) =>
   api.patch<Question>(`/questionnaire/questions/${id}`, { required });
 
-// EMPLOYEE: создать анкету для компании. Без options создаётся анкета ИБ
-// (тело запроса как раньше); для оценки зрелости обязателен targetLevel.
+// EMPLOYEE: создать анкету для компании. Без options создаётся анкета ИБ;
+// для оценки зрелости обязателен targetLevel, objectCategory — тип систем
+// подрядчика (null — не указан).
 export type CreateQuestionnaireOptions =
   | { type: 'SECURITY' }
-  | { type: 'MATURITY'; targetLevel: number };
+  | ({ type: 'MATURITY' } & MaturityTarget);
 
 export const createQuestionnaire = (
   companyId: string,
@@ -36,7 +38,12 @@ export const createQuestionnaire = (
   api.post<Questionnaire>(
     '/questionnaire',
     options?.type === 'MATURITY'
-      ? { companyId, type: 'MATURITY', targetLevel: options.targetLevel }
+      ? {
+          companyId,
+          type: 'MATURITY',
+          targetLevel: options.targetLevel,
+          objectCategory: options.objectCategory,
+        }
       : { companyId },
   );
 

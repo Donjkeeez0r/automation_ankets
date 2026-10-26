@@ -3,6 +3,7 @@ import type {
   MaturityItemInput,
   MaturityReference,
   MaturityResult,
+  MaturityTarget,
 } from '../types/maturity';
 
 // Справочник методики один для всех и не меняется во время работы, поэтому
@@ -40,12 +41,13 @@ export const updateMaturityItems = (
     items,
   });
 
-// EMPLOYEE: изменить целевой уровень (в любом статусе)
+// EMPLOYEE: изменить целевой уровень и тип систем (кроме APPROVED / DECLINED).
+// objectCategory: null сбрасывает тип на «не указано».
 export const updateMaturityTargetLevel = (
   questionnaireId: string,
-  targetLevel: number,
+  target: MaturityTarget,
 ) =>
   api.patch<{ message: string }>(
     `/questionnaire/${questionnaireId}/maturity/target-level`,
-    { targetLevel },
+    { targetLevel: target.targetLevel, objectCategory: target.objectCategory },
   );

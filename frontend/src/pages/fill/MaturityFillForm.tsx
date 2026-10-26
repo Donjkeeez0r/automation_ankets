@@ -10,6 +10,10 @@ import {
   emptyDraft,
   filledCount,
   isDirectionDone,
+  maturityProblems,
+  problemDirections,
+  problemsText,
+  scrollToDirection,
   toDrafts,
   useMaturityReference,
   type MaturityDraft,
@@ -22,19 +26,6 @@ import type { MaturityItem } from '../../types/maturity';
 const AUTOSAVE_DELAY_MS = 1500;
 
 type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
-
-// 400 при отправке неполной оценки: { incompleteDirections, missingReasonDirections }
-function submitProblems(err: unknown): { incomplete: number[]; missingReason: number[] } | null {
-  const data = (err as {
-    response?: { data?: { incompleteDirections?: unknown; missingReasonDirections?: unknown } };
-  })?.response?.data;
-  const toNumbers = (v: unknown) =>
-    Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : [];
-  const incomplete = toNumbers(data?.incompleteDirections);
-  const missingReason = toNumbers(data?.missingReasonDirections);
-  if (incomplete.length === 0 && missingReason.length === 0) return null;
-  return { incomplete, missingReason };
-}
 
 const SAVE_STATE_VIEW: Record<SaveState, { text: string; classes: string }> = {
   saved: { text: 'Сохранено ✓', classes: 'text-emerald-700' },
@@ -71,6 +62,10 @@ export default function MaturityFillForm({
   const timerRef = useRef<number | undefined>(undefined);
   // Сохранения выполняются строго по очереди, чтобы ответы не обгоняли друг друга
   const chainRef = useRef<Promise<boolean>>(Promise.resolve(true));
+  // Запрос сохранения ещё не завершился
+  const savingRef = useRef(false);
+  // Последнее сохранение завершилось ошибкой
+  const saveFailedRef = useRef(false);
 
   const draftOf = (direction: number): MaturityDraft => drafts[direction] ?? emptyDraft();
 
@@ -80,20 +75,25 @@ export default function MaturityFillForm({
       const directions = [...dirtyRef.current];
       if (directions.length === 0) return true;
       dirtyRef.current = new Set();
+      savingRef.current = true;
       setSaveState('saving');
       try {
         await saveMaturityByToken(
           token,
           directions.map((d) => draftToInput(d, draftsRef.current[d] ?? emptyDraft())),
         );
+        saveFailedRef.current = false;
         setSaveState(dirtyRef.current.size > 0 ? 'dirty' : 'saved');
         return true;
       } catch (err) {
         directions.forEach((d) => dirtyRef.current.add(d));
+        saveFailedRef.current = true;
         setSaveState('error');
         if (isAlreadySubmittedError(err)) onSubmitted();
         else setError(apiErrorMessage(err, 'Не удалось сохранить ответы. Проверьте соединение.'));
         return false;
+      } finally {
+        savingRef.current = false;
       }
     };
     chainRef.current = chainRef.current.then(run);
@@ -102,10 +102,11 @@ export default function MaturityFillForm({
 
   useEffect(() => () => window.clearTimeout(timerRef.current), []);
 
-  // Предупреждаем о несохранённых изменениях при закрытии вкладки
+  // Предупреждаем при закрытии вкладки: есть несохранённые изменения,
+  // сохранение ещё идёт или последнее сохранение не удалось
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (dirtyRef.current.size === 0) return;
+      if (dirtyRef.current.size === 0 && !savingRef.current && !saveFailedRef.current) return;
       e.preventDefault();
       e.returnValue = '';
     };
@@ -159,32 +160,16 @@ export default function MaturityFillForm({
         onSubmitted();
         return;
       }
-      const found = submitProblems(err);
+      const found = maturityProblems(err);
       if (!found) {
         setError(apiErrorMessage(err, 'Не удалось отправить оценку'));
         return;
       }
-      const all = [...new Set([...found.incomplete, ...found.missingReason])].sort((a, b) => a - b);
+      const all = problemDirections(found);
       setProblems(new Set(all));
       setExpanded((prev) => new Set([...prev, ...all]));
-      const parts: string[] = [];
-      if (found.incomplete.length > 0) {
-        parts.push(
-          `не выбраны все оценки в направлениях № ${found.incomplete.join(', ')}`,
-        );
-      }
-      if (found.missingReason.length > 0) {
-        parts.push(
-          `не указана причина неприменимости в направлениях № ${found.missingReason.join(', ')}`,
-        );
-      }
-      setError(`Оценка заполнена не полностью: ${parts.join('; ')}. Направления подсвечены ниже.`);
-      // ждём, пока раскрытые блоки отрисуются, и прокручиваем к первому
-      window.requestAnimationFrame(() =>
-        document
-          .getElementById(`maturity-direction-${all[0]}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-      );
+      setError(`Оценка заполнена не полностью: ${problemsText(found)}. Направления подсвечены ниже.`);
+      scrollToDirection(all[0]);
     } finally {
       setSubmitting(false);
     }

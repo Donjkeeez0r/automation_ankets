@@ -20,6 +20,7 @@ import {
 import Tooltip from '../../components/Tooltip';
 import { isAlreadySubmittedError } from '../../lib/linkErrors';
 import MaturityFillForm from './MaturityFillForm';
+import { byDirectionsCountText, useMaturityReference } from '../../lib/maturity';
 import type {
   Question,
   Answer,
@@ -404,28 +405,29 @@ function ArtifactsBlock({
   );
 }
 
-// Вводный экран с правилами заполнения: те же пункты, что и в письме со
-// ссылкой (links.service.ts). Показывается один раз за визит — состояние
-// живёт только в памяти вкладки, при перезагрузке экран появится снова.
-// Надзаголовок экранов подрядчика зависит от типа анкеты
 const kickerFor = (isMaturity: boolean) =>
   isMaturity ? 'Оценка уровня зрелости' : 'Анкетирование ИБ';
 
+// Правила пересекаются с письмом со ссылкой (links.service.ts) — при правке сверить оба места
 const SECURITY_RULES = [
   'Все ответы должны быть развёрнутыми и содержательными — формальные отписки не принимаются и будут возвращены на доработку.',
   'Вопросы, отмеченные звёздочкой (*), обязательны для ответа.',
   'При необходимости прикладывайте подтверждающие документы (файлы) — это ускорит проверку.',
 ];
 
-// Правила для оценки зрелости — те же пункты, что и в письме со ссылкой
-const MATURITY_RULES = [
-  'Это оценка уровня зрелости деятельности вашей организации в области защиты информации по методике ФСТЭК России. Она проводится по 21 направлению деятельности.',
+// Число направлений берётся из справочника; пока он не загружен — без числа
+const maturityRules = (directionsCount: number | null) => [
+  `Это оценка уровня зрелости деятельности вашей организации в области защиты информации по методике ФСТЭК России. Она проводится ${
+    directionsCount !== null ? byDirectionsCountText(directionsCount) : 'по направлениям'
+  } деятельности.`,
   'По каждому направлению для каждого из 8 видов требований выберите вариант, который наиболее точно описывает текущее положение дел.',
   'Если направление для вашей организации неприменимо (соответствующие процессы или технологии не используются), отметьте это и обязательно укажите причину.',
   'Ответы сохраняются автоматически — можно прерваться и позже продолжить по этой же ссылке.',
   'Желательно прикладывать подтверждающие документы (регламенты, отчёты, сертификаты) — это ускорит проверку.',
 ];
 
+// Вводный экран показывается один раз за визит — состояние живёт только
+// в памяти вкладки, при перезагрузке экран появится снова.
 function FillIntro({
   companyName,
   fillDeadlineAt,
@@ -443,7 +445,10 @@ function FillIntro({
       ? deadline.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : null;
 
-  const rules = isMaturity ? MATURITY_RULES : SECURITY_RULES;
+  const { reference } = useMaturityReference(isMaturity);
+  const rules = isMaturity
+    ? maturityRules(reference ? reference.directions.length : null)
+    : SECURITY_RULES;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

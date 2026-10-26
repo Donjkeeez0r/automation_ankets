@@ -4,6 +4,7 @@ import type {
   MaturityItem,
   MaturityItemInput,
   MaturityReference,
+  MaturitySubmitError,
   MaturityValues,
   RequirementKey,
 } from '../types/maturity';
@@ -19,8 +20,6 @@ export const REQUIREMENT_KEYS: RequirementKey[] = [
   'externalAudit',
   'improvement',
 ];
-
-export const MATURITY_LEVEL_VALUES = [0, 1, 2, 3, 4] as const;
 
 // ── Цвета уровней: одни и те же в бейджах, карточке и диаграмме ──────────────
 // 0 — красный, 1 — оранжевый, 2 — жёлтый, 3 — светло-зелёный, 4 — зелёный.
@@ -62,6 +61,12 @@ export const levelName = (
 // Числа в русской записи: 0,555
 export const formatNumber = (value: number | null | undefined): string =>
   value === null || value === undefined ? '—' : String(value).replace('.', ',');
+
+// Показатель P направления — всегда три знака после запятой: 0,500
+export const formatP = (value: number | null | undefined): string =>
+  value === null || value === undefined
+    ? '—'
+    : value.toLocaleString('ru-RU', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 // ── Черновик направления (форма подрядчика и правка сотрудником) ─────────────
 export interface MaturityDraft extends MaturityValues {
@@ -133,6 +138,80 @@ export const isDirectionDone = (draft: MaturityDraft): boolean => {
   const s = directionStatus(draft);
   return s === 'filled' || s === 'notApplicable';
 };
+
+// ── Неполная оценка ──────────────────────────────────────────────────────────
+export interface MaturityProblems {
+  incomplete: number[];
+  missingReason: number[];
+}
+
+// 400 с { incompleteDirections, missingReasonDirections }; иначе null
+export function maturityProblems(err: unknown): MaturityProblems | null {
+  const data = (err as { response?: { data?: Partial<MaturitySubmitError> } })?.response?.data;
+  const toNumbers = (v: unknown) =>
+    Array.isArray(v) ? v.filter((n): n is number => typeof n === 'number') : [];
+  const incomplete = toNumbers(data?.incompleteDirections);
+  const missingReason = toNumbers(data?.missingReasonDirections);
+  if (incomplete.length === 0 && missingReason.length === 0) return null;
+  return { incomplete, missingReason };
+}
+
+// Незаполненные направления по черновикам — те же правила, что у бэкенда
+export function draftProblems(
+  directions: number[],
+  draftOf: (direction: number) => MaturityDraft,
+): MaturityProblems | null {
+  const incomplete: number[] = [];
+  const missingReason: number[] = [];
+  for (const d of directions) {
+    const status = directionStatus(draftOf(d));
+    if (status === 'missingReason') missingReason.push(d);
+    else if (status === 'partial' || status === 'empty') incomplete.push(d);
+  }
+  if (incomplete.length === 0 && missingReason.length === 0) return null;
+  return { incomplete, missingReason };
+}
+
+// Все проблемные направления по возрастанию номера
+export const problemDirections = (p: MaturityProblems): number[] =>
+  [...new Set([...p.incomplete, ...p.missingReason])].sort((a, b) => a - b);
+
+// «не выбраны все оценки в направлениях № 1, 2; не указана причина … № 5»
+export function problemsText(p: MaturityProblems): string {
+  const parts: string[] = [];
+  if (p.incomplete.length > 0) {
+    parts.push(`не выбраны все оценки в направлениях № ${p.incomplete.join(', ')}`);
+  }
+  if (p.missingReason.length > 0) {
+    parts.push(
+      `не указана причина неприменимости в направлениях № ${p.missingReason.join(', ')}`,
+    );
+  }
+  return parts.join('; ');
+}
+
+// Раскрытые блоки отрисуются в следующем кадре — тогда и прокручиваем к первому
+export function scrollToDirection(direction: number) {
+  window.requestAnimationFrame(() =>
+    document
+      .getElementById(`maturity-direction-${direction}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  );
+}
+
+// ── Число направлений в тексте ───────────────────────────────────────────────
+// «21 направление», «22 направления», «25 направлений»
+export function directionsCountText(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n} направление`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${n} направления`;
+  return `${n} направлений`;
+}
+
+// «по 21 направлению», «по 25 направлениям»
+export const byDirectionsCountText = (n: number): string =>
+  `по ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'направлению' : 'направлениям'}`;
 
 // ── Справочник ───────────────────────────────────────────────────────────────
 export function useMaturityReference(enabled = true) {

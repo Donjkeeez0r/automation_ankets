@@ -20,8 +20,11 @@ import {
 } from './maturity.calculator';
 import { MaturityItemDto } from './dto/save-maturity.dto';
 
-// Сотрудник правит значения только во время проверки
+// Сотрудник правит значения только на проверке: в DRAFT/REVISION оценку заполняет
+// подрядчик (правки перетёрлись бы автосохранением), после решения результат зафиксирован
 const EDITABLE_BY_EMPLOYEE: Status[] = ['SUBMITTED', 'IN_REVIEW'];
+
+const LOCKED_STATUSES: Status[] = ['APPROVED', 'DECLINED'];
 
 const directionTitle = (id: number) =>
   DIRECTIONS.find((d) => d.id === id)?.title ?? `Направление ${id}`;
@@ -74,6 +77,7 @@ export class MaturityService {
               direction: item.direction,
             },
           },
+          // undefined — поле не меняется, null — очищает
           data: {
             notApplicable: item.notApplicable,
             comment: item.comment,
@@ -86,17 +90,7 @@ export class MaturityService {
     );
   }
 
-  //Подрядчик
-  async saveItems(questionnaireId: string, items: MaturityItemDto[]) {
-    await this.getMaturityQuestionnaire(questionnaireId);
-    await this.applyItems(questionnaireId, items);
-    return { message: 'Ответы сохранены' };
-  }
-
-  async validateForSubmit(questionnaireId: string) {
-    const { maturityItems: items } =
-      await this.getMaturityQuestionnaire(questionnaireId);
-
+  private checkCompleteness(items: MaturityItem[]) {
     const applicable = items.filter((i) => !i.notApplicable);
 
     if (applicable.length === 0) {
@@ -120,6 +114,19 @@ export class MaturityService {
         missingReasonDirections,
       });
     }
+  }
+
+  //Подрядчик
+  async saveItems(questionnaireId: string, items: MaturityItemDto[]) {
+    await this.getMaturityQuestionnaire(questionnaireId);
+    await this.applyItems(questionnaireId, items);
+    return { message: 'Ответы сохранены' };
+  }
+
+  async validateForSubmit(questionnaireId: string) {
+    const { maturityItems } =
+      await this.getMaturityQuestionnaire(questionnaireId);
+    this.checkCompleteness(maturityItems);
   }
 
   //Сотрудник
@@ -154,6 +161,9 @@ export class MaturityService {
         title: directionTitle(d.direction),
         levelName: d.level === null ? null : getLevelName(d.level),
         gapTitles: d.gaps.map(requirementTitle),
+        comment:
+          questionnaire.maturityItems.find((i) => i.direction === d.direction)
+            ?.comment ?? null,
       })),
     };
   }
@@ -220,6 +230,26 @@ export class MaturityService {
       return { message: 'Изменений нет' };
     }
 
+    // Отправленная оценка должна остаться полной и после правки сотрудником
+    const merged = questionnaire.maturityItems.map((old) => {
+      const patch = items.find((i) => i.direction === old.direction);
+      if (!patch) return old;
+
+      return {
+        ...old,
+        notApplicable: patch.notApplicable ?? old.notApplicable,
+        comment: patch.comment !== undefined ? patch.comment : old.comment,
+        ...Object.fromEntries(
+          REQUIREMENT_KEYS.map((key) => [
+            key,
+            patch[key] !== undefined ? patch[key] : old[key],
+          ]),
+        ),
+      };
+    });
+
+    this.checkCompleteness(merged);
+
     await this.applyItems(questionnaireId, items);
 
     await this.activityLogService.log(
@@ -237,6 +267,12 @@ export class MaturityService {
     objectCategory?: string | null,
   ) {
     const questionnaire = await this.getMaturityQuestionnaire(questionnaireId);
+
+    if (LOCKED_STATUSES.includes(questionnaire.status)) {
+      throw new BadRequestException(
+        'Параметры оценки нельзя изменить после принятия решения',
+      );
+    }
 
     const levelChanged = questionnaire.targetLevel !== targetLevel;
     const categoryChanged =

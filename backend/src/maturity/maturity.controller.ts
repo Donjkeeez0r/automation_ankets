@@ -1,5 +1,4 @@
 import { Controller, Get } from '@nestjs/common';
-import { MaturityService } from './maturity.service';
 import {
   DIRECTIONS,
   MATURITY_LEVELS,
@@ -7,9 +6,10 @@ import {
   REQUIREMENT_TYPES,
 } from './maturity.constants';
 
+// Без guard'ов: справочник нужен подрядчику на /fill/:token без авторизации
 @Controller('maturity')
 export class MaturityController {
-  constructor(private readonly maturityService: MaturityService) {}
+  constructor() {}
 
   @Get('reference')
   getReference() {
