@@ -70,6 +70,7 @@ model Questionnaire {
   status             Status            @default(DRAFT)
   type               QuestionnaireType @default(SECURITY)
   targetLevel        Int?
+  objectCategory     String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt()
   comment            String?

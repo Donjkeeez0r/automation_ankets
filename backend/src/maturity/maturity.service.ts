@@ -8,6 +8,8 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { MaturityItem, QuestionnaireType, Status } from '../generated/prisma';
 import {
   DIRECTIONS,
+  getObjectCategory,
+  MATURITY_LEVELS,
   REQUIREMENT_KEYS,
   REQUIREMENT_TYPES,
 } from './maturity.constants';
@@ -134,11 +136,19 @@ export class MaturityService {
       targetLevel,
     );
 
-    // Добавляем названия, чтобы фронту и будущему PDF-отчёту не нужен был справочник
+    const category = getObjectCategory(questionnaire.objectCategory);
+
     return {
       ...result,
       targetLevel,
       targetLevelName: getLevelName(targetLevel),
+      overallLevelDescription:
+        result.overallLevel === null
+          ? null
+          : MATURITY_LEVELS[result.overallLevel].description,
+      objectCategory: questionnaire.objectCategory,
+      objectCategoryLabel: category?.label ?? null,
+      recommendedLevel: category?.recommendedLevel ?? null,
       directions: result.directions.map((d) => ({
         ...d,
         title: directionTitle(d.direction),
@@ -221,24 +231,51 @@ export class MaturityService {
     return { message: 'Значения обновлены' };
   }
 
-  async updateTargetLevel(questionnaireId: string, targetLevel: number) {
+  async updateTargetLevel(
+    questionnaireId: string,
+    targetLevel: number,
+    objectCategory?: string | null,
+  ) {
     const questionnaire = await this.getMaturityQuestionnaire(questionnaireId);
 
-    if (questionnaire.targetLevel === targetLevel) {
+    const levelChanged = questionnaire.targetLevel !== targetLevel;
+    const categoryChanged =
+      objectCategory !== undefined &&
+      objectCategory !== questionnaire.objectCategory;
+
+    if (!levelChanged && !categoryChanged) {
       return { message: 'Изменений нет' };
     }
 
     await this.prismaService.questionnaire.update({
       where: { id: questionnaireId },
-      data: { targetLevel },
+      data: {
+        targetLevel,
+        objectCategory: categoryChanged ? objectCategory : undefined,
+      },
     });
+
+    const categoryLabel = (key: string | null | undefined) =>
+      getObjectCategory(key)?.label ?? 'не указан';
+
+    const parts: string[] = [];
+    if (levelChanged) {
+      parts.push(
+        `целевой уровень ${questionnaire.targetLevel ?? '—'} → ${targetLevel}`,
+      );
+    }
+    if (categoryChanged) {
+      parts.push(
+        `тип систем: ${categoryLabel(questionnaire.objectCategory)} → ${categoryLabel(objectCategory)}`,
+      );
+    }
 
     await this.activityLogService.log(
       questionnaireId,
       'TARGET_LEVEL_CHANGED',
-      `Целевой уровень зрелости изменён: ${questionnaire.targetLevel ?? '—'} → ${targetLevel}`,
+      `Изменены параметры оценки: ${parts.join('; ')}`,
     );
 
-    return { message: 'Целевой уровень обновлён' };
+    return { message: 'Параметры оценки обновлены' };
   }
 }

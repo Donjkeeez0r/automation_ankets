@@ -223,6 +223,7 @@ export class QuestionnaireController {
     return this.maturityService.updateTargetLevel(
       questionnaireId,
       dto.targetLevel,
+      dto.objectCategory,
     );
   }
 }

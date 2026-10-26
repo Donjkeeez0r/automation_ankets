@@ -150,6 +150,7 @@ export class QuestionnaireService {
           companyId,
           type,
           targetLevel: isMaturity ? dto.targetLevel : null,
+          objectCategory: isMaturity ? (dto.objectCategory ?? null) : null,
           maturityItems: isMaturity
             ? { create: DIRECTIONS.map((d) => ({ direction: d.id })) }
             : undefined,
@@ -382,14 +383,22 @@ export class QuestionnaireService {
         : null;
 
       if (fullQuestionnaire && fillUrl) {
+        const isMaturity =
+          fullQuestionnaire.type === QuestionnaireType.MATURITY;
+        const docName = isMaturity
+          ? 'оценка уровня зрелости защиты информации'
+          : 'анкета информационной безопасности';
+
         for (const email of fullQuestionnaire.company.contactEmails) {
           try {
             await this.notificationsService.sendMail(
               email,
-              'Анкета отправлена на дозаполнение',
+              isMaturity
+                ? 'Оценка уровня зрелости отправлена на дозаполнение'
+                : 'Анкета отправлена на дозаполнение',
               `
               <p>Здравствуйте, ${fullQuestionnaire.company.contactName}!</p>
-              <p>Ваша анкета информационной безопасности возвращена на дозаполнение со следующим комментарием:</p>
+              <p>Ваша ${docName} возвращена на дозаполнение со следующим комментарием:</p>
               <blockquote>${comment ?? 'Комментарий не указан'}</blockquote>
               <p>Внести исправления можно по ссылке: <a href="${fillUrl}">${fillUrl}</a></p>
           `,
@@ -585,12 +594,19 @@ export class QuestionnaireService {
     }
 
     for (const questionnaire of overdueQuestionnaires) {
+      const isMaturity = questionnaire.type === QuestionnaireType.MATURITY;
+      const docName = isMaturity
+        ? 'оценку уровня зрелости'
+        : 'анкету информационной безопасности';
+
       try {
         await this.notificationsService.sendMail(
           questionnaire.employee.email,
-          'Подрядчик не заполнил анкету в срок',
+          isMaturity
+            ? 'Подрядчик не заполнил оценку уровня зрелости в срок'
+            : 'Подрядчик не заполнил анкету в срок',
           `
-            <p>Компания «${questionnaire.company.name}» не заполнила анкету информационной безопасности в установленный срок (${questionnaire.fillDeadlineAt?.toLocaleDateString('ru-RU')}).</p>
+            <p>Компания «${questionnaire.company.name}» не заполнила ${docName} в установленный срок (${questionnaire.fillDeadlineAt?.toLocaleDateString('ru-RU')}).</p>
             <p>Требуется связаться с подрядчиком для уточнения ситуации.</p>
           `,
         );
