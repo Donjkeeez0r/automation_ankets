@@ -4,7 +4,6 @@ import {
   DIRECTIONS,
   MATURITY_LEVELS,
   OBJECT_CATEGORIES,
-  RECOMMENDED_TARGET_LEVELS,
   REQUIREMENT_TYPES,
 } from './maturity.constants';
 
@@ -18,7 +17,6 @@ export class MaturityController {
       directions: DIRECTIONS,
       requirementTypes: REQUIREMENT_TYPES,
       levels: MATURITY_LEVELS,
-      recommendedTargetLevels: RECOMMENDED_TARGET_LEVELS,
       objectCategories: OBJECT_CATEGORIES,
     };
   }

@@ -373,18 +373,3 @@ export const OBJECT_CATEGORY_KEYS: string[] = OBJECT_CATEGORIES.map(
 
 export const getObjectCategory = (key: string | null | undefined) =>
   OBJECT_CATEGORIES.find((c) => c.key === key) ?? null;
-export const RECOMMENDED_TARGET_LEVELS = [
-  {
-    label: 'ГИС 1 класса, ИСПДн 1 уровня, значимый объект КИИ 1 категории',
-    level: 3,
-  },
-  {
-    label: 'ГИС 2 класса, ИСПДн 2 уровня, значимый объект КИИ 2 категории',
-    level: 2,
-  },
-  {
-    label:
-      'ГИС 3 класса, иные ИС госорганов, госпредприятий и учреждений, ИСПДн 3–4 уровня, значимый объект КИИ 3 категории',
-    level: 1,
-  },
-];
