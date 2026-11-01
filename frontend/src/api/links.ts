@@ -8,8 +8,10 @@ import type {
 
 // EMPLOYEE: сгенерировать одноразовую ссылку для анкеты.
 // fillDays — срок на заполнение в днях (на бэке по умолчанию 30).
+// Ссылка уходит письмом самому сотруднику: sentTo — его адрес,
+// emailSent — удалось ли отправить письмо.
 export const createLink = (questionnaireId: string, fillDays?: number) =>
-  api.post<QuestionnaireLink>(
+  api.post<QuestionnaireLink & { sentTo: string; emailSent: boolean }>(
     `/links/questionnaire/${questionnaireId}`,
     fillDays === undefined ? {} : { fillDays },
   );

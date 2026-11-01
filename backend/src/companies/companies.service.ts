@@ -3,6 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CreateContactorEmployeeDto } from './dto/create-contactor-employee.dto';
 
+// Поля сотрудника подрядчика, отдаваемые наружу. Колонка position в БД
+// сохранена, но больше не используется и в API не попадает.
+export const CONTRACTOR_EMPLOYEE_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  companyId: true,
+  createdAt: true,
+} as const;
+
 @Injectable()
 export class CompaniesService {
   constructor(private prismaService: PrismaService) {}
@@ -95,9 +105,11 @@ export class CompaniesService {
 
     return this.prismaService.contactorEmployee.create({
       data: {
-        ...dto,
+        name: dto.name,
+        email: dto.email,
         companyId,
       },
+      select: CONTRACTOR_EMPLOYEE_SELECT,
     });
   }
 
@@ -105,6 +117,7 @@ export class CompaniesService {
     return this.prismaService.contactorEmployee.findMany({
       where: { companyId },
       orderBy: { name: 'asc' },
+      select: CONTRACTOR_EMPLOYEE_SELECT,
     });
   }
 

@@ -19,6 +19,7 @@ import {
   canEditQuestionnaire,
   isAdmin,
 } from '../../lib/permissions';
+import { NOTIFICATIONS_ENABLED } from '../../lib/features';
 import StatusBadge from '../../components/StatusBadge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import AnswersView from '../../components/AnswersView';
@@ -333,13 +334,7 @@ export default function QuestionnaireReviewPage() {
           )}
           <p className="text-sm text-gray-500">
             Анкету заполнил:{' '}
-            {questionnaire.filledByEmployee
-              ? `${questionnaire.filledByEmployee.name}${
-                  questionnaire.filledByEmployee.position
-                    ? ` (${questionnaire.filledByEmployee.position})`
-                    : ''
-                }`
-              : 'Аноним'}
+            {questionnaire.filledByEmployee?.name ?? 'Аноним'}
           </p>
           <p className="text-sm text-gray-500">
             Ответственный за скоринг: {ownerName}
@@ -516,7 +511,7 @@ export default function QuestionnaireReviewPage() {
                     {downloadingPdf ? 'Готовим PDF…' : 'Скачать PDF'}
                   </button>
                 </Tooltip>
-                {canEdit && (
+                {canEdit && NOTIFICATIONS_ENABLED && (
                   <Tooltip text="Отправить рекомендации на email компании">
                     <button
                       onClick={handleSendRecommendations}

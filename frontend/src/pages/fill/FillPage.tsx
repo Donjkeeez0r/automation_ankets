@@ -571,9 +571,6 @@ function EmployeeSelect({
                     className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 transition-colors"
                   >
                     <div className="text-sm font-medium text-gray-900">{e.name}</div>
-                    {e.position && (
-                      <div className="text-xs text-gray-500 mt-0.5">{e.position}</div>
-                    )}
                     {savingId === e.id && (
                       <div className="text-xs text-blue-600 mt-1">Сохранение...</div>
                     )}
@@ -811,7 +808,7 @@ export default function FillPage() {
             <p className="text-sm text-gray-500 mt-0.5">
               Заполняет:{' '}
               {filledBy
-                ? `${filledBy.name}${filledBy.position ? ` (${filledBy.position})` : ''}`
+                ? filledBy.name
                 : 'Аноним'}
             </p>
           </div>
@@ -867,7 +864,7 @@ export default function FillPage() {
           <p className="text-sm text-gray-500 mt-0.5">
             Заполняет:{' '}
             {filledBy
-              ? `${filledBy.name}${filledBy.position ? ` (${filledBy.position})` : ''}`
+              ? filledBy.name
               : 'Аноним'}
           </p>
         </div>

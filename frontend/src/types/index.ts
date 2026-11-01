@@ -83,7 +83,6 @@ export interface CompanyRef {
 export interface ContractorEmployee {
   id: string;
   name: string;
-  position?: string | null;
   email?: string | null;
 }
 

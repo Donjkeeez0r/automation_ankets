@@ -107,7 +107,6 @@ function EmployeesSection({ companyId }: { companyId: string }) {
 
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
-  const [position, setPosition] = useState('');
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -126,7 +125,6 @@ function EmployeesSection({ companyId }: { companyId: string }) {
   const closeForm = () => {
     setAdding(false);
     setName('');
-    setPosition('');
     setEmail('');
     setFormError('');
   };
@@ -142,7 +140,6 @@ function EmployeesSection({ companyId }: { companyId: string }) {
     try {
       const { data } = await addCompanyEmployee(companyId, {
         name: name.trim(),
-        position: position.trim() || undefined,
         email: email.trim() || undefined,
       });
       setEmployees((prev) =>
@@ -204,10 +201,8 @@ function EmployeesSection({ companyId }: { companyId: string }) {
             <li key={e.id} className="flex items-center gap-3 px-3 py-2">
               <div className="flex-1 min-w-0">
                 <div className="text-sm text-gray-800 truncate">{e.name}</div>
-                {(e.position || e.email) && (
-                  <div className="text-xs text-gray-500 truncate">
-                    {[e.position, e.email].filter(Boolean).join(' · ')}
-                  </div>
+                {e.email && (
+                  <div className="text-xs text-gray-500 truncate">{e.email}</div>
                 )}
               </div>
               <button
@@ -227,12 +222,6 @@ function EmployeesSection({ companyId }: { companyId: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Имя сотрудника *"
-            className={inputClass}
-          />
-          <input
-            value={position}
-            onChange={(e) => setPosition(e.target.value)}
-            placeholder="Должность (необязательно)"
             className={inputClass}
           />
           <input
@@ -307,6 +296,8 @@ function CompanyCard({
   const [questionnaires, setQuestionnaires] = useState<CompanyQuestionnaire[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Подтверждение после отправки ссылки сотруднику на почту
+  const [notice, setNotice] = useState('');
   // Анкета, для которой открыто окно обязательности вопросов
   // (readOnly — чужая анкета, настройки только для просмотра)
   const [overridesFor, setOverridesFor] = useState<{
@@ -376,8 +367,16 @@ function CompanyCard({
   const handleCreateLink = async (questionnaireId: string, fillDays: number) => {
     setBusy(true);
     setError('');
+    setNotice('');
     try {
-      await createLink(questionnaireId, fillDays);
+      const { data } = await createLink(questionnaireId, fillDays);
+      if (data.emailSent) {
+        setNotice(`Ссылка отправлена на вашу почту ${data.sentTo}`);
+      } else {
+        setError(
+          `Ссылка создана, но письмо на ${data.sentTo} отправить не удалось — скопируйте ссылку из списка ниже`,
+        );
+      }
       await load();
       return true;
     } catch (err) {
@@ -451,6 +450,7 @@ function CompanyCard({
       </div>
 
       {error && <div className="mt-3 text-xs text-red-600">{error}</div>}
+      {notice && <div className="mt-3 text-xs text-emerald-700">{notice}</div>}
 
       {expanded && (
         <div className="mt-4 ml-5">
@@ -516,7 +516,7 @@ function CompanyCard({
                       </Tooltip>
                       )}
                       {mine && (
-                        <Tooltip text="Сгенерировать одноразовую ссылку на анкету и отправить подрядчику на почту">
+                        <Tooltip text="Ссылка на анкету придёт вам на почту, перешлите её подрядчику">
                           <button
                             onClick={() => {
                               setFillDays(String(DEFAULT_FILL_DAYS));
@@ -525,7 +525,7 @@ function CompanyCard({
                             disabled={busy}
                             className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                           >
-                            Отправить ОЛ
+                            Отправить ссылку себе
                           </button>
                         </Tooltip>
                       )}
@@ -595,10 +595,10 @@ function CompanyCard({
             className="relative w-full max-w-sm bg-white rounded-xl border border-gray-200 shadow-xl p-5"
           >
             <h2 className="text-base font-semibold text-gray-900">
-              Отправить ОЛ
+              Отправить ссылку себе
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Ссылка будет отправлена на контактные адреса компании.
+              Ссылка на анкету придёт вам на почту, перешлите её подрядчику.
             </p>
 
             <label

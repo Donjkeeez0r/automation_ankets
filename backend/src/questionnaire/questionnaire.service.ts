@@ -14,6 +14,9 @@ import { Status, QuestionnaireType, Role } from '../generated/prisma';
 import { CreateQuestionDto, UpdateQuestionDto } from './dto/question.dto';
 import { LinksService } from '../links/links.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NOTIFICATIONS_ENABLED } from '../notifications/notifications.constants';
+import { escapeHtml } from '../notifications/escape-html';
+import { CONTRACTOR_EMPLOYEE_SELECT } from '../companies/companies.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import PDFDocument from 'pdfkit';
 import { Response } from 'express';
@@ -209,7 +212,7 @@ export class QuestionnaireService {
             contactEmails: true,
           },
         },
-        filledByEmployee: true,
+        filledByEmployee: { select: CONTRACTOR_EMPLOYEE_SELECT },
         employee: OWNER_SELECT,
         maturityItems: { orderBy: { direction: 'asc' } },
       },
@@ -271,12 +274,13 @@ export class QuestionnaireService {
     }
 
     // Проверять анкету может только закреплённый за ней ответственный — ему и пишем.
+    // Отключено по требованию заказчика, включить — NOTIFICATIONS_ENABLED = true.
     try {
       await this.notificationsService.sendMail(
         questionnaire.employee.email,
         'Новая анкета на проверку',
         `
-          <p>Поступила новая анкета от компании «${questionnaire.company.name}» для проверки.</p>
+          <p>Поступила новая анкета от компании «${escapeHtml(questionnaire.company.name)}» для проверки.</p>
           <p>Проверьте её в системе анкетирования.</p>
         `,
       );
@@ -382,27 +386,30 @@ export class QuestionnaireService {
         ? `${process.env.FRONTEND_URL}/fill/${activeLink.token}`
         : null;
 
-      if (fullQuestionnaire && fillUrl) {
+      // Отключено по требованию заказчика, включить — NOTIFICATIONS_ENABLED = true.
+      if (NOTIFICATIONS_ENABLED && fullQuestionnaire && fillUrl) {
         const isMaturity =
           fullQuestionnaire.type === QuestionnaireType.MATURITY;
         const docName = isMaturity
           ? 'оценка уровня зрелости защиты информации'
           : 'анкета информационной безопасности';
 
+        let sentCount = 0;
         for (const email of fullQuestionnaire.company.contactEmails) {
           try {
-            await this.notificationsService.sendMail(
+            const sent = await this.notificationsService.sendMail(
               email,
               isMaturity
                 ? 'Оценка уровня зрелости отправлена на дозаполнение'
                 : 'Анкета отправлена на дозаполнение',
               `
-              <p>Здравствуйте, ${fullQuestionnaire.company.contactName}!</p>
+              <p>Здравствуйте, ${escapeHtml(fullQuestionnaire.company.contactName)}!</p>
               <p>Ваша ${docName} возвращена на дозаполнение со следующим комментарием:</p>
-              <blockquote>${comment ?? 'Комментарий не указан'}</blockquote>
-              <p>Внести исправления можно по ссылке: <a href="${fillUrl}">${fillUrl}</a></p>
+              <blockquote>${escapeHtml(comment ?? 'Комментарий не указан')}</blockquote>
+              <p>Внести исправления можно по ссылке: <a href="${escapeHtml(fillUrl)}">${escapeHtml(fillUrl)}</a></p>
           `,
             );
+            if (sent) sentCount++;
           } catch (err) {
             this.logger.error(
               `Не удалось отправить письмо о дозаполнении на адрес ${email}`,
@@ -411,11 +418,14 @@ export class QuestionnaireService {
           }
         }
 
-        await this.activityLogService.log(
-          questionnaireId,
-          'REVISION_EMAIL_SENT',
-          `Письмо о дозаполнении отправлено подрядчику (${new Date().toLocaleString('ru-RU')})`,
-        );
+        // В историю пишем, только если письмо реально ушло.
+        if (sentCount > 0) {
+          await this.activityLogService.log(
+            questionnaireId,
+            'REVISION_EMAIL_SENT',
+            `Письмо о дозаполнении отправлено подрядчику (${new Date().toLocaleString('ru-RU')})`,
+          );
+        }
       }
     }
 
@@ -549,12 +559,15 @@ export class QuestionnaireService {
 
     for (const questionnaire of overdueQuestionnaires) {
       // Сбой отправки не должен мешать пометке анкеты как уведомлённой.
+      // При NOTIFICATIONS_ENABLED = false письмо не уходит, но пометка
+      // deadlineNotifiedAt ставится: после включения рассылки старые
+      // просрочки не придут разом.
       try {
         await this.notificationsService.sendMail(
           questionnaire.employee.email,
           'Просрочен дедлайн дозаполнения анкеты',
           `
-          <p>У компании «${questionnaire.company.name}» истёк срок дозаполнения анкеты (дедлайн: ${questionnaire.deadlineAt?.toLocaleDateString('ru-RU')}).</p>
+          <p>У компании «${escapeHtml(questionnaire.company.name)}» истёк срок дозаполнения анкеты (дедлайн: ${questionnaire.deadlineAt?.toLocaleDateString('ru-RU')}).</p>
           <p>Требуется проверка в системе анкетирования.</p>
           `,
         );
@@ -599,6 +612,8 @@ export class QuestionnaireService {
         ? 'оценку уровня зрелости'
         : 'анкету информационной безопасности';
 
+      // Как и в checkDeadlines: при выключенной рассылке письмо не уходит,
+      // а fillDeadlineNotifiedAt всё равно проставляется.
       try {
         await this.notificationsService.sendMail(
           questionnaire.employee.email,
@@ -606,7 +621,7 @@ export class QuestionnaireService {
             ? 'Подрядчик не заполнил оценку уровня зрелости в срок'
             : 'Подрядчик не заполнил анкету в срок',
           `
-            <p>Компания «${questionnaire.company.name}» не заполнила ${docName} в установленный срок (${questionnaire.fillDeadlineAt?.toLocaleDateString('ru-RU')}).</p>
+            <p>Компания «${escapeHtml(questionnaire.company.name)}» не заполнила ${docName} в установленный срок (${questionnaire.fillDeadlineAt?.toLocaleDateString('ru-RU')}).</p>
             <p>Требуется связаться с подрядчиком для уточнения ситуации.</p>
           `,
         );
@@ -713,6 +728,11 @@ export class QuestionnaireService {
   }
 
   async sendRecommendationsByEmail(questionnaireId: string) {
+    // Отключено по требованию заказчика, включить — NOTIFICATIONS_ENABLED = true.
+    if (!NOTIFICATIONS_ENABLED) {
+      throw new BadRequestException('Отправка писем отключена');
+    }
+
     const questionnaire = await this.prismaService.questionnaire.findUnique({
       where: { id: questionnaireId },
       include: { company: true },
@@ -726,21 +746,26 @@ export class QuestionnaireService {
 
     const listHtml = recommendations.length
       ? recommendations
-          .map((r) => `<li><strong>${r.category}</strong>: ${r.text}</li>`)
+          .map(
+            (r) =>
+              `<li><strong>${escapeHtml(r.category)}</strong>: ${escapeHtml(r.text)}</li>`,
+          )
           .join('')
       : '<li>Рекомендации отсутствуют — все требования выполнены.</li>';
 
+    let sentCount = 0;
     for (const email of questionnaire.company.contactEmails) {
       try {
-        await this.notificationsService.sendMail(
+        const sent = await this.notificationsService.sendMail(
           email,
           'Рекомендации по результатам проверки анкеты',
           `
-          <p>Здравствуйте, ${questionnaire.company.contactName}!</p>
+          <p>Здравствуйте, ${escapeHtml(questionnaire.company.contactName)}!</p>
           <p>По результатам проверки анкеты информационной безопасности подготовлены следующие рекомендации:</p>
           <ul>${listHtml}</ul>
           `,
         );
+        if (sent) sentCount++;
       } catch (err) {
         this.logger.error(
           `Не удалось отправить рекомендации на адрес ${email}`,
@@ -749,11 +774,13 @@ export class QuestionnaireService {
       }
     }
 
-    await this.activityLogService.log(
-      questionnaireId,
-      'RECOMMENDATIONS_EMAIL_SENT',
-      `Рекомендации отправлены подрядчику (${new Date().toLocaleString('ru-RU')})`,
-    );
+    if (sentCount > 0) {
+      await this.activityLogService.log(
+        questionnaireId,
+        'RECOMMENDATIONS_EMAIL_SENT',
+        `Рекомендации отправлены подрядчику (${new Date().toLocaleString('ru-RU')})`,
+      );
+    }
 
     return { message: 'Рекомендации отправлены' };
   }

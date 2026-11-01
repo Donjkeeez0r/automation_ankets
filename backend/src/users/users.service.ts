@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes } from 'crypto';
+import { generatePassword } from './password-generator';
 import { CreateUserDto } from './dto/create-user.dto';
 import bcrypt from 'bcrypt';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -23,10 +23,6 @@ const USER_SELECT = {
 @Injectable()
 export class UsersService {
   constructor(private prismaService: PrismaService) {}
-
-  private generatePassword(): string {
-    return randomBytes(6).toString('base64').slice(0, 10);
-  }
 
   private async countAdmins() {
     return this.prismaService.user.count({ where: { role: Role.ADMIN } });
@@ -55,7 +51,7 @@ export class UsersService {
       throw new BadRequestException('Данный email уже занят!');
     }
 
-    const generatedPassword = this.generatePassword();
+    const generatedPassword = generatePassword(dto.role);
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
     const user = await this.prismaService.user.create({
@@ -164,9 +160,9 @@ export class UsersService {
   }
 
   async resetPassword(id: string) {
-    await this.getUserOrThrow(id);
+    const user = await this.getUserOrThrow(id);
 
-    const generatedPassword = this.generatePassword();
+    const generatedPassword = generatePassword(user.role);
     const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
     await this.prismaService.user.update({

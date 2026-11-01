@@ -34,7 +34,7 @@ export const getCompanyEmployees = (id: string) =>
 // EMPLOYEE: добавить сотрудника компании
 export const addCompanyEmployee = (
   id: string,
-  data: { name: string; position?: string; email?: string },
+  data: { name: string; email?: string },
 ) => api.post<ContractorEmployee>(`/companies/${id}/employees`, data);
 
 // EMPLOYEE: удалить сотрудника компании
