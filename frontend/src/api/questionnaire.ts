@@ -97,6 +97,11 @@ export const downloadRecommendationsPdf = (id: string) =>
     responseType: 'blob',
   });
 
+// EMPLOYEE: заполненная анкета (ИБ или оценка зрелости) целиком в PDF.
+// Кириллическое имя файла сервер отдаёт в filename* (Content-Disposition).
+export const downloadQuestionnairePdf = (id: string) =>
+  api.get<Blob>(`/questionnaire/${id}/pdf`, { responseType: 'blob' });
+
 // Имя файла из Content-Disposition: сначала RFC 5987 (filename*=UTF-8''...),
 // затем обычный filename. Возвращает null, если заголовка нет — вызывающий
 // код подставит своё имя.

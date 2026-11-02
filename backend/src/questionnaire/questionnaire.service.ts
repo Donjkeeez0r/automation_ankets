@@ -20,17 +20,14 @@ import { CONTRACTOR_EMPLOYEE_SELECT } from '../companies/companies.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import PDFDocument from 'pdfkit';
 import { Response } from 'express';
-import { join } from 'path';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { CreateQuestionnaireDto } from './dto/create-questionnaire.dto';
 import { DIRECTIONS } from '../maturity/maturity.constants';
 import { MaturityService } from '../maturity/maturity.service';
+import { FONT_BOLD_PATH, FONT_PATH } from './pdf-fonts';
 
 // Ответственный за скоринг, за которым закреплена анкета (без пароля)
 const OWNER_SELECT = { select: { id: true, name: true, email: true } };
-
-const FONT_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans.ttf');
-const FONT_BOLD_PATH = join(process.cwd(), 'assets/fonts/DejaVuSans-Bold.ttf');
 
 @Injectable()
 export class QuestionnaireService {

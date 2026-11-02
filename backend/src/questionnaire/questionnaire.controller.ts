@@ -8,6 +8,7 @@ import {
   Post,
   UseGuards,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { QuestionnaireService } from './questionnaire.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,6 +28,7 @@ import { UpdateTargetLevelDto } from '../maturity/dto/update-target-level.dto';
 import { QuestionnaireAccessService } from '../access/questionnaire-access.service';
 import type { AuthUser } from '../auth/types';
 import { ChangeOwnerDto } from './dto/change-owner.dto';
+import { QuestionnairePdfService } from './questionnaire-pdf.service';
 
 // Права (см. docs/ROLES.md):
 // - просмотр анкет — обе роли;
@@ -40,6 +42,7 @@ export class QuestionnaireController {
     private questionnaireService: QuestionnaireService,
     private maturityService: MaturityService,
     private access: QuestionnaireAccessService,
+    private questionnairePdfService: QuestionnairePdfService,
   ) {}
 
   @Post()
@@ -178,6 +181,21 @@ export class QuestionnaireController {
       questionnaireId,
       res,
     );
+  }
+
+  // Заполненная анкета (ИБ или оценка зрелости) целиком в PDF
+  @Get(':id/pdf')
+  @Roles(Role.EMPLOYEE)
+  async downloadQuestionnairePdf(@Param('id') questionnaireId: string) {
+    const { buffer, fileName } =
+      await this.questionnairePdfService.generate(questionnaireId);
+
+    // filename — ASCII-запасной вариант, filename* — кириллическое имя (RFC 5987)
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      length: buffer.length,
+      disposition: `attachment; filename="questionnaire.pdf"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+    });
   }
 
   @Post(':id/send-recommendations')

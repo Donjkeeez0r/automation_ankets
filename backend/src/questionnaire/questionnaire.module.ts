@@ -9,9 +9,10 @@ import { AccessModule } from '../access/access.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { MaturityController } from '../maturity/maturity.controller';
 import { MaturityService } from '../maturity/maturity.service';
+import { QuestionnairePdfService } from './questionnaire-pdf.service';
 
 @Module({
-  providers: [QuestionnaireService, MaturityService],
+  providers: [QuestionnaireService, MaturityService, QuestionnairePdfService],
   imports: [
     PrismaModule,
     ActivityLogModule,

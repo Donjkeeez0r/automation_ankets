@@ -7,6 +7,7 @@ import {
   updateStatus,
   deleteQuestionnaire,
   downloadRecommendationsPdf,
+  downloadQuestionnairePdf,
   sendRecommendations,
   parseContentDispositionFileName,
   changeQuestionnaireOwner,
@@ -18,6 +19,7 @@ import {
   canDeleteQuestionnaire,
   canEditQuestionnaire,
   isAdmin,
+  isEmployee,
 } from '../../lib/permissions';
 import { NOTIFICATIONS_ENABLED } from '../../lib/features';
 import StatusBadge from '../../components/StatusBadge';
@@ -42,6 +44,21 @@ function errorMessage(err: unknown, fallback: string): string {
     ?.message;
   if (Array.isArray(msg)) return msg.join(', ');
   return msg ?? fallback;
+}
+
+// При responseType: 'blob' тело ошибки тоже приходит Blob — достаём из него message
+async function blobErrorMessage(err: unknown, fallback: string): Promise<string> {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text()) as { message?: string | string[] };
+      if (Array.isArray(parsed.message)) return parsed.message.join(', ');
+      if (parsed.message) return parsed.message;
+    } catch {
+      // не JSON — показываем общий текст
+    }
+  }
+  return errorMessage(err, fallback);
 }
 
 // ADMIN: закрепить анкету за другим ответственным за скоринг
@@ -153,6 +170,9 @@ export default function QuestionnaireReviewPage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState('');
 
+  const [downloadingQuestionnairePdf, setDownloadingQuestionnairePdf] = useState(false);
+  const [questionnairePdfError, setQuestionnairePdfError] = useState('');
+
   const [sendingRecommendations, setSendingRecommendations] = useState(false);
   const [sendSuccess, setSendSuccess] = useState('');
   const [sendError, setSendError] = useState('');
@@ -186,6 +206,24 @@ export default function QuestionnaireReviewPage() {
       setPdfError('Не удалось скачать PDF с рекомендациями');
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadQuestionnairePdf = async () => {
+    if (!id) return;
+    setDownloadingQuestionnairePdf(true);
+    setQuestionnairePdfError('');
+    try {
+      const { data, headers } = await downloadQuestionnairePdf(id);
+      const fileName =
+        parseContentDispositionFileName(
+          headers['content-disposition'] as string | undefined,
+        ) ?? 'questionnaire.pdf';
+      saveBlobAs(data, fileName);
+    } catch (err) {
+      setQuestionnairePdfError(await blobErrorMessage(err, 'Не удалось скачать PDF анкеты'));
+    } finally {
+      setDownloadingQuestionnairePdf(false);
     }
   };
 
@@ -352,6 +390,24 @@ export default function QuestionnaireReviewPage() {
             </div>
           )}
         </div>
+        {isEmployee(user) && (
+          <Tooltip
+            className="shrink-0"
+            text={
+              questionnaire.status === 'DRAFT'
+                ? 'PDF будет доступен после отправки анкеты подрядчиком'
+                : `Скачать ${isMaturity ? 'оценку зрелости' : 'анкету'} с ответами в формате PDF`
+            }
+          >
+            <button
+              onClick={handleDownloadQuestionnairePdf}
+              disabled={downloadingQuestionnairePdf || questionnaire.status === 'DRAFT'}
+              className="px-3 py-1.5 border border-gray-300 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {downloadingQuestionnairePdf ? 'Готовим PDF…' : 'Скачать PDF'}
+            </button>
+          </Tooltip>
+        )}
         {canDelete && (
           <Tooltip
             className="shrink-0"
@@ -366,6 +422,12 @@ export default function QuestionnaireReviewPage() {
           </Tooltip>
         )}
       </div>
+
+      {questionnairePdfError && (
+        <div className="mb-6 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+          {questionnairePdfError}
+        </div>
+      )}
 
       {!canEdit && (
         <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
