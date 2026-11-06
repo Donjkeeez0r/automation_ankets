@@ -18,6 +18,7 @@ import {
   formatFileSize,
 } from '../../api/artifacts';
 import Tooltip from '../../components/Tooltip';
+import Footer from '../../components/Footer';
 import { isAlreadySubmittedError } from '../../lib/linkErrors';
 import MaturityFillForm from './MaturityFillForm';
 import { byDirectionsCountText, useMaturityReference } from '../../lib/maturity';
@@ -451,43 +452,46 @@ function FillIntro({
     : SECURITY_RULES;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="mb-6">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            {kickerFor(isMaturity)}
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Прежде чем начать заполнение</h1>
-          {companyName && (
-            <p className="text-sm text-gray-500 mt-0.5">Компания: {companyName}</p>
-          )}
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <ul className="space-y-3">
-            {rules.map((rule) => (
-              <li key={rule} className="flex gap-3 text-sm text-gray-700">
-                <span className="text-blue-600 mt-0.5">•</span>
-                <span>{rule}</span>
-              </li>
-            ))}
-          </ul>
-
-          {deadlineText && (
-            <div className="mt-5 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
-              <span className="font-medium">Заполнить нужно до:</span> {deadlineText}
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex-1 py-8 px-4">
+        <div className="max-w-xl mx-auto">
+          <div className="mb-6">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+              {kickerFor(isMaturity)}
             </div>
-          )}
+            <h1 className="text-xl font-bold text-gray-900">Прежде чем начать заполнение</h1>
+            {companyName && (
+              <p className="text-sm text-gray-500 mt-0.5">Компания: {companyName}</p>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={onStart}
-            className="mt-6 w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Начать заполнение
-          </button>
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <ul className="space-y-3">
+              {rules.map((rule) => (
+                <li key={rule} className="flex gap-3 text-sm text-gray-700">
+                  <span className="text-blue-600 mt-0.5">•</span>
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
+
+            {deadlineText && (
+              <div className="mt-5 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+                <span className="font-medium">Заполнить нужно до:</span> {deadlineText}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onStart}
+              className="mt-6 w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Начать заполнение
+            </button>
+          </div>
         </div>
       </div>
+      <Footer containerClassName="max-w-xl mx-auto" />
     </div>
   );
 }
@@ -539,52 +543,55 @@ function EmployeeSelect({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="mb-6">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            {kickerFor(isMaturity)}
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Выберите себя из списка</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Укажите, кто {isMaturity ? 'проходит оценку' : 'заполняет анкету'}
-            {companyName ? ` от компании ${companyName}` : ''}.
-          </p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          {loading ? (
-            <div className="text-sm text-gray-500">Загрузка списка сотрудников...</div>
-          ) : employees.length === 0 ? (
-            // Пустой список: родитель уже получил onEmpty и переключается на форму
-            <div className="text-sm text-gray-500">
-              {isMaturity ? 'Открываем оценку...' : 'Открываем анкету...'}
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex-1 py-8 px-4">
+        <div className="max-w-xl mx-auto">
+          <div className="mb-6">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+              {kickerFor(isMaturity)}
             </div>
-          ) : (
-            <ul className="space-y-2">
-              {employees.map((e) => (
-                <li key={e.id}>
-                  <button
-                    type="button"
-                    onClick={() => void select(e)}
-                    disabled={savingId !== null}
-                    className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 transition-colors"
-                  >
-                    <div className="text-sm font-medium text-gray-900">{e.name}</div>
-                    {savingId === e.id && (
-                      <div className="text-xs text-blue-600 mt-1">Сохранение...</div>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            <h1 className="text-xl font-bold text-gray-900">Выберите себя из списка</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Укажите, кто {isMaturity ? 'проходит оценку' : 'заполняет анкету'}
+              {companyName ? ` от компании ${companyName}` : ''}.
+            </p>
+          </div>
 
-          {error && (
-            <div className="mt-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
-          )}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            {loading ? (
+              <div className="text-sm text-gray-500">Загрузка списка сотрудников...</div>
+            ) : employees.length === 0 ? (
+              // Пустой список: родитель уже получил onEmpty и переключается на форму
+              <div className="text-sm text-gray-500">
+                {isMaturity ? 'Открываем оценку...' : 'Открываем анкету...'}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {employees.map((e) => (
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      onClick={() => void select(e)}
+                      disabled={savingId !== null}
+                      className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50/50 disabled:opacity-50 transition-colors"
+                    >
+                      <div className="text-sm font-medium text-gray-900">{e.name}</div>
+                      {savingId === e.id && (
+                        <div className="text-xs text-blue-600 mt-1">Сохранение...</div>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {error && (
+              <div className="mt-4 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
+            )}
+          </div>
         </div>
       </div>
+      <Footer containerClassName="max-w-xl mx-auto" />
     </div>
   );
 }
@@ -721,23 +728,29 @@ export default function FillPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-sm text-gray-500">
-        Загрузка...
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+          Загрузка...
+        </div>
+        <Footer containerClassName="max-w-md mx-auto" />
       </div>
     );
   }
 
   if (invalid) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
-          <div className="text-3xl mb-3">🔒</div>
-          <h1 className="text-lg font-bold text-gray-900 mb-2">Ссылка недоступна</h1>
-          <p className="text-sm text-gray-500">
-            Ссылка недействительна или срок её действия истёк. Обратитесь к сотруднику,
-            который её предоставил.
-          </p>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
+            <div className="text-3xl mb-3">🔒</div>
+            <h1 className="text-lg font-bold text-gray-900 mb-2">Ссылка недоступна</h1>
+            <p className="text-sm text-gray-500">
+              Ссылка недействительна или срок её действия истёк. Обратитесь к сотруднику,
+              который её предоставил.
+            </p>
+          </div>
         </div>
+        <Footer containerClassName="max-w-md mx-auto" />
       </div>
     );
   }
@@ -746,19 +759,22 @@ export default function FillPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
-          <div className="text-3xl mb-3">✅</div>
-          <h1 className="text-lg font-bold text-gray-900 mb-2">
-            {isMaturity ? 'Оценка успешно отправлена' : 'Анкета успешно отправлена'}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {isMaturity
-              ? 'Спасибо! Ваши оценки и приложенные файлы переданы на проверку.'
-              : 'Спасибо! Ваши ответы и приложенные файлы переданы на проверку.'}
-            {' '}Мы свяжемся с вами после её завершения. Эту вкладку можно закрыть.
-          </p>
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
+            <div className="text-3xl mb-3">✅</div>
+            <h1 className="text-lg font-bold text-gray-900 mb-2">
+              {isMaturity ? 'Оценка успешно отправлена' : 'Анкета успешно отправлена'}
+            </h1>
+            <p className="text-sm text-gray-500">
+              {isMaturity
+                ? 'Спасибо! Ваши оценки и приложенные файлы переданы на проверку.'
+                : 'Спасибо! Ваши ответы и приложенные файлы переданы на проверку.'}
+              {' '}Мы свяжемся с вами после её завершения. Эту вкладку можно закрыть.
+            </p>
+          </div>
         </div>
+        <Footer containerClassName="max-w-md mx-auto" />
       </div>
     );
   }
@@ -791,15 +807,75 @@ export default function FillPage() {
 
   if (isMaturity && token) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex-1 py-8 px-4">
+          <div className="max-w-3xl mx-auto">
+            <div className="mb-6">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+                {kickerFor(true)}
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Оценка уровня зрелости защиты информации
+              </h1>
+              {link.questionnaire.company?.name && (
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Компания: {link.questionnaire.company.name}
+                </p>
+              )}
+              <p className="text-sm text-gray-500 mt-0.5">
+                Заполняет:{' '}
+                {filledBy
+                  ? filledBy.name
+                  : 'Аноним'}
+              </p>
+            </div>
+
+            {link.questionnaire.comment && (
+              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+                <span className="font-medium">Комментарий проверяющего:</span>{' '}
+                {link.questionnaire.comment}
+              </div>
+            )}
+
+            <GuaranteeLetterBlock
+              token={token}
+              letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
+            />
+
+            <MaturityFillForm
+              token={token}
+              items={link.questionnaire.maturityItems}
+              artifactsBlock={
+                <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
+              }
+              onSubmitted={markSubmitted}
+            />
+          </div>
+        </div>
+        <Footer containerClassName="max-w-3xl mx-auto" />
+      </div>
+    );
+  }
+
+  // Обязательность вопроса для этой анкеты: индивидуальное переопределение,
+  // если оно задано сотрудником, иначе глобальное значение вопроса.
+  const overrideMap = new Map(
+    (link.questionnaire.overrides ?? []).map((o) => [o.questionId, o.required]),
+  );
+  const isRequired = (q: Question) => overrideMap.get(q.id) ?? q.required;
+
+  const visibleSections = getVisibleSections();
+  const sectionKeys = Object.keys(SECTION_LABELS).filter((s) => visibleSections.has(s));
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex-1 py-8 px-4">
         <div className="max-w-3xl mx-auto">
           <div className="mb-6">
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-              {kickerFor(true)}
+              Анкетирование ИБ
             </div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Оценка уровня зрелости защиты информации
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900">Заполнение анкеты</h1>
             {link.questionnaire.company?.name && (
               <p className="text-sm text-gray-500 mt-0.5">
                 Компания: {link.questionnaire.company.name}
@@ -820,174 +896,120 @@ export default function FillPage() {
             </div>
           )}
 
-          <GuaranteeLetterBlock
-            token={token}
-            letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
-          />
-
-          <MaturityFillForm
-            token={token}
-            items={link.questionnaire.maturityItems}
-            artifactsBlock={
-              <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
-            }
-            onSubmitted={markSubmitted}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Обязательность вопроса для этой анкеты: индивидуальное переопределение,
-  // если оно задано сотрудником, иначе глобальное значение вопроса.
-  const overrideMap = new Map(
-    (link.questionnaire.overrides ?? []).map((o) => [o.questionId, o.required]),
-  );
-  const isRequired = (q: Question) => overrideMap.get(q.id) ?? q.required;
-
-  const visibleSections = getVisibleSections();
-  const sectionKeys = Object.keys(SECTION_LABELS).filter((s) => visibleSections.has(s));
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
-            Анкетирование ИБ
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Заполнение анкеты</h1>
-          {link.questionnaire.company?.name && (
-            <p className="text-sm text-gray-500 mt-0.5">
-              Компания: {link.questionnaire.company.name}
-            </p>
+          {token && (
+            <GuaranteeLetterBlock
+              token={token}
+              letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
+            />
           )}
-          <p className="text-sm text-gray-500 mt-0.5">
-            Заполняет:{' '}
-            {filledBy
-              ? filledBy.name
-              : 'Аноним'}
-          </p>
-        </div>
 
-        {link.questionnaire.comment && (
-          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
-            <span className="font-medium">Комментарий проверяющего:</span>{' '}
-            {link.questionnaire.comment}
-          </div>
-        )}
+          <div className="space-y-6">
+            {sectionKeys.map((sectionKey) => {
+              let sectionQuestions = questions
+                .filter((q) => q.section === sectionKey)
+                .sort((a, b) => a.order - b.order);
 
-        {token && (
-          <GuaranteeLetterBlock
-            token={token}
-            letters={artifacts.filter((a) => a.type === 'guarantee_letter')}
-          />
-        )}
-
-        <div className="space-y-6">
-          {sectionKeys.map((sectionKey) => {
-            let sectionQuestions = questions
-              .filter((q) => q.section === sectionKey)
-              .sort((a, b) => a.order - b.order);
-
-            if (sectionKey === 'ib_measures') {
-              for (const { code, section } of APPENDED_TRIGGERS) {
-                const triggerQ = questions.find((q) => q.code === code);
-                if (!triggerQ) continue;
-                sectionQuestions = [...sectionQuestions, triggerQ];
-                if (answers[triggerQ.id] === 'Да') {
-                  const childQuestions = questions
-                    .filter((q) => q.section === section && q.code !== code)
-                    .sort((a, b) => a.order - b.order);
-                  sectionQuestions = [...sectionQuestions, ...childQuestions];
+              if (sectionKey === 'ib_measures') {
+                for (const { code, section } of APPENDED_TRIGGERS) {
+                  const triggerQ = questions.find((q) => q.code === code);
+                  if (!triggerQ) continue;
+                  sectionQuestions = [...sectionQuestions, triggerQ];
+                  if (answers[triggerQ.id] === 'Да') {
+                    const childQuestions = questions
+                      .filter((q) => q.section === section && q.code !== code)
+                      .sort((a, b) => a.order - b.order);
+                    sectionQuestions = [...sectionQuestions, ...childQuestions];
+                  }
                 }
               }
-            }
 
-            if (sectionQuestions.length === 0) return null;
+              if (sectionQuestions.length === 0) return null;
 
-            return (
-              <div
-                key={sectionKey}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden"
-              >
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-                  <h2 className="text-sm font-semibold text-gray-800">
-                    {SECTION_LABELS[sectionKey]}
-                  </h2>
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {sectionQuestions.map((q) => {
-                    const group = q.groupLabel ? splitGroupLabel(q.groupLabel) : null;
+              return (
+                <div
+                  key={sectionKey}
+                  className="bg-white rounded-xl border border-gray-200 overflow-hidden"
+                >
+                  <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <h2 className="text-sm font-semibold text-gray-800">
+                      {SECTION_LABELS[sectionKey]}
+                    </h2>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {sectionQuestions.map((q) => {
+                      const group = q.groupLabel ? splitGroupLabel(q.groupLabel) : null;
 
-                    return (
-                      <div
-                        key={q.id}
-                        className={`px-6 py-4 ${
-                          (q.section === 'gis' || q.section === 'pdn') && q.order > 1
-                            ? 'pl-10 bg-gray-50/50'
-                            : ''
-                        }`}
-                      >
-                        {group && (
-                          <div className="mt-2 mb-4">
-                            <p className="text-base font-semibold text-gray-900">{group.title}</p>
-                            {group.note && (
-                              <p className="mt-1 text-xs text-gray-500">{group.note}</p>
-                            )}
-                          </div>
-                        )}
-                        <p className="text-sm text-gray-800 mb-3">
-                          <span className="font-medium text-gray-400 mr-2">{q.code}</span>
-                          {q.text}
-                          {isRequired(q) && (
-                            <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
-                              *
-                            </span>
+                      return (
+                        <div
+                          key={q.id}
+                          className={`px-6 py-4 ${
+                            (q.section === 'gis' || q.section === 'pdn') && q.order > 1
+                              ? 'pl-10 bg-gray-50/50'
+                              : ''
+                          }`}
+                        >
+                          {group && (
+                            <div className="mt-2 mb-4">
+                              <p className="text-base font-semibold text-gray-900">{group.title}</p>
+                              {group.note && (
+                                <p className="mt-1 text-xs text-gray-500">{group.note}</p>
+                              )}
+                            </div>
                           )}
-                        </p>
-                        <AnswerInput
-                          question={q}
-                          value={answers[q.id] ?? ''}
-                          additionalValue={additionalValues[q.id] ?? ''}
-                          onChange={(v) => handleAnswer(q.id, v)}
-                          onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
-                        />
-                      </div>
-                    );
-                  })}
+                          <p className="text-sm text-gray-800 mb-3">
+                            <span className="font-medium text-gray-400 mr-2">{q.code}</span>
+                            {q.text}
+                            {isRequired(q) && (
+                              <span className="text-red-600 ml-1" aria-label="Обязательный вопрос">
+                                *
+                              </span>
+                            )}
+                          </p>
+                          <AnswerInput
+                            question={q}
+                            value={answers[q.id] ?? ''}
+                            additionalValue={additionalValues[q.id] ?? ''}
+                            onChange={(v) => handleAnswer(q.id, v)}
+                            onAdditionalChange={(v) => handleAdditionalAnswer(q.id, v)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
 
-          {token && (
-            <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
+            {token && (
+              <ArtifactsBlock token={token} files={artifacts} setFiles={setArtifacts} />
+            )}
+          </div>
+
+          {error && (
+            <div className="mt-6 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
           )}
-        </div>
 
-        {error && (
-          <div className="mt-6 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</div>
-        )}
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Сохранение...' : saved ? 'Сохранено ✓' : 'Сохранить черновик'}
-          </button>
-          <Tooltip text="После отправки анкету нельзя будет редактировать до решения проверяющего">
+          <div className="mt-6 flex justify-end gap-3">
             <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
-              {submitting ? 'Отправка...' : 'Отправить анкету'}
+              {saving ? 'Сохранение...' : saved ? 'Сохранено ✓' : 'Сохранить черновик'}
             </button>
-          </Tooltip>
+            <Tooltip text="После отправки анкету нельзя будет редактировать до решения проверяющего">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {submitting ? 'Отправка...' : 'Отправить анкету'}
+              </button>
+            </Tooltip>
+          </div>
         </div>
       </div>
+      <Footer containerClassName="max-w-3xl mx-auto" />
     </div>
   );
 }
